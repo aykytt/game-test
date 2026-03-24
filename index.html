@@ -1,0 +1,4377 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CACTUS — Strategy Game</title>
+<!-- Mixpanel -->
+<script type="text/javascript">
+(function(f,b){if(!b.__SV){var e,g,i,h;window.mixpanel=b;b._i=[];b.init=function(e,f,c){function g(a,d){var b=d.split(".");2==b.length&&(a=a[b[0]],d=b[1]);a[d]=function(){a.push([d].concat(Array.prototype.slice.call(arguments,0)))}}var a=b;"undefined"!==typeof c?a=b[c]=[]:c="mixpanel";a.people=a.people||[];a.toString=function(a){var d="mixpanel";"mixpanel"!==c&&(d+="."+c);a||(d+=" (stub)");return d};a.people.toString=function(){return a.toString(1)+".people (stub)"};i="disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking start_batch_senders people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(" ");for(h=0;h<i.length;h++)g(a,i[h]);var j="set set_once union unset remove delete".split(" ");a.get_group=function(){function b(c){d[c]=function(){call2_args=arguments;call2=[c].concat(Array.prototype.slice.call(call2_args,0));a.push([e,call2])}}for(var d={},e=["get_group"].concat(Array.prototype.slice.call(arguments,0)),c=0;c<j.length;c++)b(j[c]);return d};b._i.push([e,f,c])};b.__SV=1.2;e=f.createElement("script");e.type="text/javascript";e.async=!0;e.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"file:"===f.location.protocol&&"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";g=f.getElementsByTagName("script")[0];g.parentNode.insertBefore(e,g)}})(document,window.mixpanel||[]);
+mixpanel.init('1eb5bf0eac8219fa740e14976812d294', {
+  autocapture: true,
+  api_host: 'https://api-eu.mixpanel.com',
+});
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0b09;
+    --surface: #131509;
+    --border: #3a3f2a;
+    --text: #f0f2e6;
+    --text-muted: #b8bda8;  /* AA 4.5:1+ on #0a0b09 */
+    --green-dark: #2d5a27;
+    --green-light: #8fba3c;
+    --green-glow: #c8f060;
+    --p1: #ffb830;
+    --p2: #ff6b4a;
+    --accent: #c8f060;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    height: 100dvh;
+    width: 100vw;
+  }
+
+  #canvas-container {
+    position: absolute;
+    inset: 0;
+  }
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top bar */
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: linear-gradient(to bottom, rgba(14,15,12,0.95), transparent);
+    pointer-events: all;
+  }
+
+  .game-title {
+    font-size: 15px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    
+    font-weight: 700;
+  }
+
+  /* Score panels */
+  .score-panels {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .score-card {
+    background: rgba(19,21,9,0.95);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    text-align: center;
+    min-width: 80px;
+    transition: border-color 0.3s;
+  }
+
+  .score-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 14px rgba(200,240,96,0.2);
+  }
+
+  .score-card .player-label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    
+    margin-bottom: 5px;
+    font-weight: 700;
+  }
+
+  .score-card.p1 .player-label { color: var(--p1); }
+  .score-card.p2 .player-label { color: var(--p2); }
+
+  .score-card .score-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .score-card .pieces-left {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  .turn-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* Bottom bar */
+  #bottombar {
+    margin-top: auto;
+    padding: 16px 20px;
+    background: linear-gradient(to top, rgba(14,15,12,0.95), transparent);
+    pointer-events: all;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  /* Turn display */
+  #turn-display {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .turn-label {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .turn-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .turn-name.p1 { color: var(--p1); }
+  .turn-name.p2 { color: var(--p2); }
+
+  /* Controls hint */
+  #controls-hint {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    text-align: right;
+    line-height: 2.0;
+    font-weight: 600;
+  }
+
+  #controls-hint span {
+    display: inline-block;
+    background: rgba(255,255,255,0.09);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin: 0 1px;
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  /* Phase button */
+  #phase-btn {
+    pointer-events: all;
+    background: var(--accent);
+    color: #0a0b09;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  #phase-btn:hover {
+    background: var(--green-glow);
+    transform: translateY(-1px);
+  }
+
+  /* Info panel - left side — MASAÜSTÜ */
+  #info-panel {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: all;
+  }
+
+  .info-chip {
+    background: rgba(19,21,9,0.92);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    
+    font-weight: 600;
+  }
+
+  .info-chip strong {
+    color: var(--accent);
+    display: block;
+    font-size: 18px;
+    margin-bottom: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── MOBİL GENEL ── */
+  @media (max-width: 1024px) {
+    /* Info panel tamamen gizle */
+    #info-panel { display: none !important; }
+
+    /* Last move toggle gizle */
+    #last-move-toggle { display: none !important; }
+
+    /* Rotation hint gizle */
+    #rotation-hint { display: none !important; }
+
+    /* Controls hint gizle */
+    #controls-hint { display: none !important; }
+
+    /* Topbar kompakt */
+    #topbar { padding: 10px 12px; }
+
+    .game-title { font-size: 12px; letter-spacing: 0.2em; }
+
+    .score-card { padding: 7px 10px; min-width: 62px; }
+    .score-card .score-value { font-size: 22px; }
+    .score-card .player-label { font-size: 9px; }
+    .score-card .pieces-left { font-size: 9px; }
+
+    /* Bottombar kompakt */
+    #bottombar { padding: 10px 12px; }
+    .turn-name { font-size: 16px; }
+    .turn-label { font-size: 9px; }
+
+    #phase-btn { padding: 10px 16px; font-size: 11px; }
+
+    /* Preview label yukarı taşı */
+    #preview-label { bottom: 160px; font-size: 11px; }
+  }
+
+  /* ── MOBİL KONTROL PANELİ ── */
+  #mobile-controls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    pointer-events: all;
+  }
+
+  @media (max-width: 1024px) {
+    #mobile-controls { display: block; }
+    #bottombar { display: none; }
+  }
+
+  .mobile-ctrl-bar {
+    background: rgba(10,11,9,0.96);
+    border-top: 1px solid var(--border);
+    padding: 10px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Gövde döndür + sıra satırı */
+  .mobile-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobile-turn-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mobile-turn-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text-muted); font-weight: 600;  }
+  .mobile-turn-name { font-size: 15px; font-weight: 700; }
+  .mobile-turn-name.p1 { color: var(--p1); }
+  .mobile-turn-name.p2 { color: var(--p2); }
+
+  /* Gövdeyi döndür butonu */
+  #mobile-orbit-btn {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    padding: 9px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  #mobile-orbit-btn.active {
+    background: rgba(200,240,96,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Taş seç / yerleştir butonları */
+  .mobile-action-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  #mobile-phase-btn {
+    flex: 1;
+    background: var(--accent);
+    color: #0a0b09;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #mobile-phase-btn:disabled {
+    background: var(--border);
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  #mobile-cancel-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    padding: 12px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    display: none;
+  }
+
+  /* Döndürme butonları grid */
+  #mobile-rotate-grid {
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  #mobile-rotate-grid.visible { display: grid; }
+
+  .rot-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .rot-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    text-align: center;
+    font-weight: 700;
+    
+  }
+  .rot-btn-pair {
+    display: flex;
+    gap: 4px;
+  }
+  .rot-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 10px 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .rot-btn:active {
+    background: rgba(200,240,96,0.2);
+    border-color: var(--accent);
+    transform: scale(0.96);
+  }
+
+  /* Yerleştir butonu — mobil */
+  #mobile-place-btn {
+    width: 100%;
+    background: var(--border);
+    color: var(--text-muted);
+    border: none;
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    
+    cursor: not-allowed;
+    transition: all 0.2s;
+    display: none;
+  }
+  #mobile-place-btn.enabled {
+    background: var(--accent);
+    color: #0a0b09;
+    cursor: pointer;
+  }
+  #mobile-place-btn.visible { display: block; }
+
+  /* Loading overlay */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+    transition: opacity 0.5s;
+  }
+
+  #loading .logo {
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+  }
+
+  #loading .sub {
+    font-size: 13px;
+    letter-spacing: 0.4em;
+    color: var(--text-muted);
+    
+    font-weight: 600;
+  }
+
+  .loader-bar {
+    width: 120px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .loader-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    animation: load 1.2s ease forwards;
+  }
+
+  @keyframes load {
+    to { width: 100%; }
+  }
+
+  /* ── LOBBY ── */
+  #lobby {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    padding: 24px;
+    gap: 0;
+  }
+
+  @keyframes htpGlow { 0%,100%{opacity:0.6} 50%{opacity:1} }
+  @keyframes htpSlide { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes htpFade  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes htpPop   { 0%{opacity:0;transform:scale(0.7)} 70%{transform:scale(1.08)} 100%{opacity:1;transform:scale(1)} }
+
+  /* PC slide layout */
+  @media (min-width: 720px) {
+    #htp-track > div {
+      flex-direction: row !important;
+      gap: 56px !important;
+      padding: 32px 80px !important;
+      justify-content: center !important;
+      align-items: center !important;
+    }
+    #htp-track > div > div:last-child {
+      max-width: 320px;
+    }
+  }
+
+  /* Info tip button */
+  /* i butonu — absolute, layout etkilemiyor */
+  .info-tip-btn {
+    position: absolute;
+    right: -32px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    background: transparent;
+    border: none;
+    color: #4a5e38;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.18s;
+    letter-spacing: 0;
+  }
+  .info-tip-btn:hover { color: #8a9e6a; }
+  .tip-box {
+    position: absolute;
+    left: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #1c2214;
+    border: 1px solid #3a4030;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #a8b890;
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+    width: 190px;
+    white-space: normal;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s;
+    z-index: 50;
+  }
+  @media (hover: hover) {
+    .info-tip-btn:hover .tip-box { opacity: 1; }
+  }
+
+  /* Nick screen flex */
+  #nick-create, #nick-enter { display: none; }
+  #nick-create.active, #nick-enter.active { display: flex; }
+
+  .lobby-logo {
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--accent);  /* #c8f060 on #0a0b09 = 13:1 AAA */
+    margin-bottom: 6px;
+  }
+
+  .lobby-sub {
+    font-size: 13px;
+    letter-spacing: 0.35em;
+    color: #c8c9b8;  /* #c8c9b8 on #0a0b09 = 8.5:1 AAA */
+    
+    font-weight: 600;
+    margin-bottom: 36px;
+  }
+
+  .lobby-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .lobby-name-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px 0 0 8px;
+    color: #f0f2e6;  /* AAA on dark bg */
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    padding: 12px 14px;
+    outline: none;
+    letter-spacing: 0.05em;
+  }
+  .lobby-name-input::placeholder { color: #7a7f68; } /* 4.6:1 AA */
+  .lobby-name-input:focus { border-color: var(--accent); }
+
+  .lobby-name-label {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    color: #c8c9b8;  /* AAA */
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    padding: 12px 12px;
+    white-space: nowrap;
+  }
+
+  .lobby-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .lobby-btn {
+    border: none;
+    border-radius: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .lobby-btn-primary {
+    background: var(--accent);
+    color: #0a0b09;  /* 13:1 AAA */
+  }
+  .lobby-btn-primary:hover { background: var(--green-glow); transform: translateY(-1px); }
+
+  .lobby-btn-secondary {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    color: #f0f2e6;  /* ~14:1 AAA */
+  }
+  .lobby-btn-secondary:hover { border-color: var(--accent); background: rgba(200,240,96,0.08); }
+
+  .lobby-btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: #c8c9b8;  /* 8.5:1 AAA */
+  }
+  .lobby-btn-ghost:hover { border-color: var(--border); color: #f0f2e6; }
+
+  .lobby-btn .btn-arrow { opacity: 0.6; font-size: 15px; }
+
+  /* ── ROOM SCREEN ── */
+  #room-screen {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    padding: 24px;
+    gap: 16px;
+  }
+  #room-screen.visible { display: flex; }
+
+  .room-title {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: #c8c9b8;
+    
+  }
+
+  .room-code-display {
+    font-family: 'Courier New', monospace;
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-align: center;
+    line-height: 1;
+  }
+
+  .room-copy-btn {
+    background: rgba(200,240,96,0.1);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .room-copy-btn:hover { background: rgba(200,240,96,0.18); }
+  .room-copy-btn.copied { background: var(--accent); color: #0a0b09; }
+
+  .room-waiting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #c8c9b8;
+    letter-spacing: 0.12em;
+  }
+
+  .room-waiting-dot {
+    width: 7px; height: 7px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.4s infinite;
+  }
+
+  .room-desc {
+    font-size: 14px;
+    color: #c8c9b8;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.6;
+  }
+
+  .room-cancel-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: #a8b890;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 9px 18px;
+    cursor: pointer;
+    transition: all 0.18s;
+    margin-top: 4px;
+  }
+
+  /* ── JOIN SCREEN ── */
+  #join-screen {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    padding: 24px;
+    gap: 16px;
+  }
+  #join-screen.visible { display: flex; }
+
+  .join-input-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .join-code-input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--accent);
+    font-family: 'Courier New', monospace;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 0.4em;
+    padding: 14px 20px;
+    outline: none;
+    text-align: center;
+    
+    width: 200px;
+    max-width: 90vw;
+    display: block;
+  }
+  .join-code-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(200,240,96,0.15); }
+
+  .join-error {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--p2);
+    letter-spacing: 0.1em;
+    min-height: 18px;
+    text-align: center;
+  }
+
+  /* ── COUNTDOWN ── */
+  #countdown-screen {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    gap: 12px;
+  }
+  #countdown-screen.visible { display: flex; }
+
+  .countdown-vs {
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    color: #c8c9b8;
+    
+    margin-bottom: 8px;
+  }
+
+  .countdown-names {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .countdown-p1 {
+    font-family: 'Courier New', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--p1);
+  }
+
+  .countdown-p2 {
+    font-family: 'Courier New', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--p2);
+  }
+
+  .countdown-sep {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #c8c9b8;
+    letter-spacing: 0.2em;
+  }
+
+  .countdown-number {
+    font-family: 'Courier New', monospace;
+    font-size: 72px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    animation: countPulse 1s ease-in-out;
+  }
+
+  @keyframes countPulse {
+    0% { transform: scale(1.3); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── ONLINE TURN BANNER ── */
+  #online-waiting {
+    display: none;
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,11,9,0.92);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 10px 20px;
+    z-index: 60;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: border-color 0.3s;
+  }
+  #online-waiting.visible { display: flex; }
+  #online-waiting.state-waiting { border-color: var(--border); }
+  #online-waiting.state-played  { border-color: var(--accent); }
+
+  .ow-dot-row {
+    display: flex; gap: 5px;
+  }
+  .ow-dot {
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: owPulse 1.2s ease-in-out infinite;
+  }
+  .ow-dot:nth-child(2) { animation-delay: 0.2s; }
+  .ow-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes owPulse {
+    0%,100% { opacity:0.2; transform:scale(0.7); }
+    50% { opacity:1; transform:scale(1); }
+  }
+  .ow-text {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+
+  /* ── YOUR TURN TOAST ── */
+  #your-turn-toast {
+    display: none;
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #0a0b09;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    padding: 10px 22px;
+    border-radius: 100px;
+    z-index: 70;
+    animation: toastIn 0.3s ease;
+  }
+  @keyframes toastIn {
+    from { opacity:0; transform: translateX(-50%) translateY(-8px); }
+    to   { opacity:1; transform: translateX(-50%) translateY(0); }
+  }
+  #piece-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 210px;
+    background: rgba(10,11,9,0.97);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    pointer-events: all;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    z-index: 10;
+  }
+  #piece-panel.open { transform: translateX(0); }
+  #piece-panel.pinned { transform: translateX(0) !important; }
+
+  /* Mobilde panel bottom: JS tarafından dinamik olarak ayarlanır */
+  @media (max-width: 1024px) {
+    #piece-panel {
+      bottom: 140px; /* JS yüklenene kadar fallback */
+    }
+  }
+
+  /* Pin butonu */
+  #panel-pin-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.18s;
+    flex-shrink: 0;
+  }
+  #panel-pin-btn.active {
+    background: rgba(200,240,96,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  /* Mobilde pin yok */
+  @media (max-width: 1024px) {
+    #panel-pin-btn { display: none !important; }
+  }
+
+  /* Panel tab'ları */
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-tab {
+    flex: 1;
+    padding: 10px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-align: center;
+    
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.18s;
+    font-family: 'Courier New', monospace;
+  }
+  .panel-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .panel-tab.p1-tab.active { border-bottom-color: var(--p1); color: var(--p1); }
+  .panel-tab.p2-tab.active { border-bottom-color: var(--p2); color: var(--p2); }
+  .panel-tab:hover:not(.active) { color: var(--text); }
+
+  .panel-player-label {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-player-label.p1 { color: var(--p1); }
+  .panel-player-label.p2 { color: var(--p2); }
+
+  #piece-list {
+    flex: 1;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    min-height: 0; /* flex child scroll fix */
+  }
+
+  .piece-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .piece-item:hover { background: rgba(255,255,255,0.07); border-color: rgba(200,240,96,0.4); }
+  .piece-item.selected { border-color: var(--accent); background: rgba(200,240,96,0.08); box-shadow: 0 0 10px rgba(200,240,96,0.12); }
+  .piece-item.used { opacity: 0.28; pointer-events: none; }
+
+  .piece-preview {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    background: rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .piece-preview svg { display: block; }
+  .piece-info { flex: 1; min-width: 0; }
+  .piece-name { font-size: 11px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; margin-bottom: 3px; }
+  .piece-units { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+  .piece-pts { font-size: 14px; font-weight: 900; flex-shrink: 0; }
+
+  /* Floating piece in main scene */
+  #preview-label {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,11,9,0.92);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  #preview-label.visible { opacity: 1; }
+
+  #rotation-hint {
+    position: absolute;
+    bottom: 90px;
+    right: 210px;
+    background: rgba(10,11,9,0.92);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    line-height: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #rotation-hint.visible { opacity: 1; }
+  #rotation-hint span {
+    display: inline-block;
+    background: rgba(255,255,255,0.09);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 700;
+    margin: 0 1px;
+  }
+</style>
+<!-- Firebase SDK — head'de yüklenmeli -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script>
+  try {
+    const firebaseConfig = {
+      apiKey: "AIzaSyDf_YFcv3vEYqH_S57BLYkq-uOwCJTFnE8",
+      authDomain: "cactus-game-d5037.firebaseapp.com",
+      databaseURL: "https://cactus-game-d5037-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "cactus-game-d5037",
+      storageBucket: "cactus-game-d5037.firebasestorage.app",
+      messagingSenderId: "718889434445",
+      appId: "1:718889434445:web:ac20a1888e83a5dc550b04"
+    };
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.database();
+  } catch(e) {
+    console.warn('Firebase init failed — offline mode only', e);
+    window.db = null;
+  }
+</script>
+</head>
+<body>
+
+
+<!-- ══════════════════════════════════════
+     HOW TO PLAY
+══════════════════════════════════════ -->
+<div id="htp" style="position:fixed;inset:0;background:#0a0b09;z-index:95;display:flex;flex-direction:column;overflow:hidden;">
+  <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:20px 28px;border-bottom:1px solid #2a3020;background:#0a0b09;z-index:2;">
+    <span style="font-size:12px;letter-spacing:0.28em;color:#a8b890;font-weight:700;">HOW TO PLAY</span>
+  </div>
+
+  <div style="position:absolute;inset:61px 0 80px 0;overflow:hidden;">
+    <div id="htp-track" style="display:flex;height:100%;transition:transform 0.38s cubic-bezier(0.4,0,0.2,1);">
+
+      <!-- SLIDE 1/6: THE BOARD -->
+      <div style="flex-shrink:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:32px;">
+        <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="160" height="300" viewBox="0 0 160 300" fill="none">
+            <rect x="44" y="4"   width="30" height="30" rx="3" fill="#243018" stroke="#c8f060" stroke-width="1.5"/>
+            <rect x="78" y="4"   width="30" height="30" rx="3" fill="#243018" stroke="#c8f060" stroke-width="1.5"/>
+            <rect x="44" y="38"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="78" y="38"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="44" y="72"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="78" y="72"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="44" y="106" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="78" y="106" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="44" y="140" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="78" y="140" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="44" y="174" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="78" y="174" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="44" y="208" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="78" y="208" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="44" y="242" width="30" height="30" rx="3" fill="#243018" stroke="#c8f060" stroke-width="1.5"/>
+            <rect x="78" y="242" width="30" height="30" rx="3" fill="#243018" stroke="#c8f060" stroke-width="1.5"/>
+            <rect x="40" y="0"   width="72" height="38" rx="4" fill="none" stroke="#c8f060" stroke-width="2" stroke-dasharray="5 3" style="animation:htpGlow 2s ease-in-out infinite"/>
+            <rect x="40" y="238" width="72" height="38" rx="4" fill="none" stroke="#c8f060" stroke-width="2" stroke-dasharray="5 3" style="animation:htpGlow 2s ease-in-out 0.6s infinite"/>
+            <text x="118" y="22"  font-family="Courier New" font-size="11" fill="#c8f060" font-weight="700">START</text>
+            <text x="118" y="260" font-family="Courier New" font-size="11" fill="#c8f060" font-weight="700">START</text>
+          </svg>
+        </div>
+        <div style="max-width:320px;">
+          <div style="font-size:11px;letter-spacing:0.28em;color:#5a6e40;font-weight:700;margin-bottom:12px;">01 / 06</div>
+          <h2 style="font-size:22px;font-weight:700;color:#f0f2e6;margin-bottom:16px;">The Board</h2>
+          <p style="font-size:15px;color:#a8b890;line-height:1.8;">A tower of 32 cubes — 2 wide, 8 tall. The <strong style="color:#c8f060;">glowing top and bottom rows</strong> are the start zones. Every game must begin with contact there.</p>
+        </div>
+      </div>
+
+      <!-- SLIDE 2/6: FIRST MOVE -->
+      <div style="flex-shrink:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:32px;">
+        <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="200" height="240" viewBox="0 0 200 240" fill="none">
+            <rect x="80" y="10"  width="30" height="30" rx="3" fill="#243018" stroke="#c8f060" stroke-width="1.5"/>
+            <rect x="114" y="10" width="30" height="30" rx="3" fill="#243018" stroke="#c8f060" stroke-width="1.5"/>
+            <rect x="80" y="44"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="114" y="44" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="80" y="78"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="114" y="78" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="80" y="112" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="114" y="112" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="76" y="6" width="72" height="38" rx="4" fill="none" stroke="#c8f060" stroke-width="2" stroke-dasharray="5 3" style="animation:htpGlow 2s ease-in-out infinite"/>
+            <g style="animation:htpSlide 0.5s ease 0.3s both">
+              <rect x="30" y="10" width="30" height="30" rx="3" fill="#8fc828"/>
+              <rect x="30" y="44" width="30" height="30" rx="3" fill="#7ab020"/>
+            </g>
+            <g style="animation:htpFade 0.4s ease 0.85s both">
+              <line x1="62" y1="25" x2="78" y2="25" stroke="#c8f060" stroke-width="2.5" stroke-linecap="round"/>
+              <polygon points="78,20 78,30 86,25" fill="#c8f060"/>
+            </g>
+            <text x="100" y="175" font-family="Courier New" font-size="13" fill="#c8f060" text-anchor="middle" font-weight="700">touch the START zone</text>
+            <text x="100" y="193" font-family="Courier New" font-size="12" fill="#7a8a60" text-anchor="middle">any piece can be used</text>
+          </svg>
+        </div>
+        <div style="max-width:320px;">
+          <div style="font-size:11px;letter-spacing:0.28em;color:#5a6e40;font-weight:700;margin-bottom:12px;">02 / 06</div>
+          <h2 style="font-size:22px;font-weight:700;color:#f0f2e6;margin-bottom:16px;">First Move</h2>
+          <p style="font-size:15px;color:#a8b890;line-height:1.8;">Your first piece must <strong style="color:#c8f060;">touch the start zone</strong>. <strong style="color:#c8f060;">Any piece</strong> can be used. At least one unit must make contact.</p>
+        </div>
+      </div>
+
+      <!-- SLIDE 3/6: TOUCH RULE -->
+      <div style="flex-shrink:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:32px;">
+        <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="220" height="200" viewBox="0 0 220 200" fill="none">
+            <rect x="90" y="20"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="90" y="54"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="90" y="88"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="90" y="122" width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="90" y="54" width="30" height="30" rx="3" fill="#8fc828"/>
+            <rect x="90" y="88" width="30" height="30" rx="3" fill="#7ab020"/>
+            <g style="animation:htpSlide 0.45s ease 0.5s both">
+              <rect x="58" y="54" width="30" height="30" rx="3" fill="#d85a30"/>
+              <rect x="58" y="88" width="30" height="30" rx="3" fill="#c84820"/>
+              <rect x="24" y="88" width="30" height="30" rx="3" fill="#b83818"/>
+            </g>
+            <g style="animation:htpPop 0.3s ease 0.95s both">
+              <circle cx="89" cy="69"  r="7" fill="none" stroke="#c8f060" stroke-width="2"/>
+              <circle cx="89" cy="69"  r="3" fill="#c8f060"/>
+              <circle cx="89" cy="103" r="7" fill="none" stroke="#c8f060" stroke-width="2"/>
+              <circle cx="89" cy="103" r="3" fill="#c8f060"/>
+            </g>
+            <text x="110" y="168" font-family="Courier New" font-size="13" fill="#c8f060" text-anchor="middle" font-weight="700">must touch opponent</text>
+            <text x="110" y="186" font-family="Courier New" font-size="12" fill="#7a8a60" text-anchor="middle">every move, every turn</text>
+          </svg>
+        </div>
+        <div style="max-width:320px;">
+          <div style="font-size:11px;letter-spacing:0.28em;color:#5a6e40;font-weight:700;margin-bottom:12px;">03 / 06</div>
+          <h2 style="font-size:22px;font-weight:700;color:#f0f2e6;margin-bottom:16px;">Touch Rule</h2>
+          <p style="font-size:15px;color:#a8b890;line-height:1.8;">After the first move, <strong style="color:#c8f060;">every piece must touch your opponent's last piece</strong>. No contact — the move is invalid.</p>
+        </div>
+      </div>
+
+      <!-- SLIDE 4/6: 1-UNIT RULE -->
+      <div style="flex-shrink:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:32px;">
+        <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="240" height="200" viewBox="0 0 240 200" fill="none">
+            <rect x="100" y="10"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="134" y="10"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="100" y="44"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="134" y="44"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="100" y="78"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="134" y="78"  width="30" height="30" rx="3" fill="#141810" stroke="#222a18" stroke-width="0.5"/>
+            <rect x="100" y="44" width="30" height="30" rx="3" fill="#8fc828"/>
+            <line x1="97" y1="4" x2="97" y2="120" stroke="#3a5020" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="70" y="8"  font-family="Courier New" font-size="10" fill="#4a6030" text-anchor="middle">board</text>
+            <text x="70" y="20" font-family="Courier New" font-size="10" fill="#4a6030" text-anchor="middle">edge</text>
+            <g style="animation:htpPop 0.35s ease 0.2s both">
+              <rect x="62" y="44" width="30" height="30" rx="3" fill="#d85a30"/>
+              <text x="47" y="38" font-family="Courier New" font-size="22" fill="#8fc828" text-anchor="middle" font-weight="700">✓</text>
+              <text x="47" y="90" font-family="Courier New" font-size="13" fill="#8fc828" font-weight="700" text-anchor="middle">1 unit</text>
+              <text x="47" y="105" font-family="Courier New" font-size="11" fill="#5a8030" text-anchor="middle">outside = OK</text>
+            </g>
+            <g style="animation:htpPop 0.35s ease 0.6s both">
+              <rect x="168" y="44" width="30" height="30" rx="3" fill="#d85a30" opacity="0.6"/>
+              <rect x="202" y="44" width="30" height="30" rx="3" fill="#c84820" opacity="0.6"/>
+            </g>
+            <g style="animation:htpPop 0.3s ease 0.9s both">
+              <line x1="168" y1="44" x2="232" y2="74" stroke="#d85a30" stroke-width="3" stroke-linecap="round"/>
+              <line x1="232" y1="44" x2="168" y2="74" stroke="#d85a30" stroke-width="3" stroke-linecap="round"/>
+            </g>
+            <text x="200" y="90"  font-family="Courier New" font-size="13" fill="#d85a30" font-weight="700" text-anchor="middle">2 units</text>
+            <text x="200" y="105" font-family="Courier New" font-size="11" fill="#8a3020" text-anchor="middle">outside = invalid</text>
+            <text x="120" y="142" font-family="Courier New" font-size="13" fill="#c8d8a8" text-anchor="middle" font-weight="700">max 1 unit beyond board edge</text>
+          </svg>
+        </div>
+        <div style="max-width:320px;">
+          <div style="font-size:11px;letter-spacing:0.28em;color:#5a6e40;font-weight:700;margin-bottom:12px;">04 / 06</div>
+          <h2 style="font-size:22px;font-weight:700;color:#f0f2e6;margin-bottom:16px;">The 1-Unit Rule</h2>
+          <p style="font-size:15px;color:#a8b890;line-height:1.8;">A piece can extend <strong style="color:#c8f060;">at most 1 unit beyond the board edge</strong>. Two or more units hanging outside is <span style="color:#d85a30;font-weight:700;">invalid</span>.</p>
+        </div>
+      </div>
+
+      <!-- SLIDE 5/6: SCORING -->
+      <div style="flex-shrink:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:32px;">
+        <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="230" height="200" viewBox="0 0 230 200" fill="none">
+            <text x="25" y="18" font-family="Courier New" font-size="10" fill="#8fc828" text-anchor="middle" font-weight="700">YOU</text>
+            <text x="59" y="18" font-family="Courier New" font-size="10" fill="#d85a30" text-anchor="middle" font-weight="700">OPP</text>
+            <rect x="10" y="24" width="30" height="30" rx="3" fill="#8fc828"/>
+            <rect x="10" y="58" width="30" height="30" rx="3" fill="#7ab020"/>
+            <rect x="10" y="92" width="30" height="30" rx="3" fill="#6a9018"/>
+            <rect x="44" y="24" width="30" height="30" rx="3" fill="#d85a30" opacity="0.9"/>
+            <rect x="44" y="92" width="30" height="30" rx="3" fill="#c84820" opacity="0.9"/>
+            <rect x="10" y="58" width="30" height="30" rx="3" fill="none" stroke="#c8f060" stroke-width="2.5" style="animation:htpGlow 1.5s ease-in-out infinite"/>
+            <circle cx="43" cy="39"  r="5" fill="#c8f060"/>
+            <circle cx="43" cy="107" r="5" fill="#c8f060"/>
+            <text x="25" y="76" font-family="Courier New" font-size="9" fill="#c8f060" text-anchor="middle">+5!</text>
+            <rect x="88" y="22" width="136" height="26" rx="4" fill="#1c2412" stroke="#2a3820"/>
+            <text x="156" y="39" font-family="Courier New" font-size="12" fill="#c8c9b8" text-anchor="middle">3 units = +3 pts</text>
+            <rect x="88" y="54" width="136" height="26" rx="4" fill="#1c2412" stroke="#2a3820"/>
+            <text x="156" y="71" font-family="Courier New" font-size="12" fill="#c8f060" text-anchor="middle">2 touch = +2 pts</text>
+            <rect x="88" y="86" width="136" height="26" rx="4" fill="#1c2412" stroke="#c8f060" stroke-width="1.2"/>
+            <text x="156" y="103" font-family="Courier New" font-size="11" fill="#c8f060" text-anchor="middle" font-weight="700">1 cube → 2 opp = +5</text>
+            <line x1="88" y1="124" x2="224" y2="124" stroke="#3a4a28" stroke-width="1"/>
+            <text x="156" y="144" font-family="Courier New" font-size="16" fill="#c8f060" text-anchor="middle" font-weight="700">= +10 pts</text>
+            <text x="115" y="164" font-family="Courier New" font-size="12" fill="#d0e0b0" text-anchor="middle">8 units in a line → +10 bonus</text>
+            <text x="115" y="182" font-family="Courier New" font-size="12" fill="#d0e0b0" text-anchor="middle">unused pieces at end = penalty</text>
+          </svg>
+        </div>
+        <div style="max-width:320px;">
+          <div style="font-size:11px;letter-spacing:0.28em;color:#5a6e40;font-weight:700;margin-bottom:12px;">05 / 06</div>
+          <h2 style="font-size:22px;font-weight:700;color:#f0f2e6;margin-bottom:16px;">Scoring</h2>
+          <p style="font-size:15px;color:#a8b890;line-height:1.8;"><strong style="color:#c8f060;">Base:</strong> 1 pt per unit.<br><strong style="color:#c8f060;">Contact:</strong> +1 per opponent cube touched.<br><strong style="color:#c8f060;">Placement Bonus:</strong> 1 cube touching 2 opponent cubes → +5.<br><strong style="color:#c8f060;">Continuity:</strong> 8 in a line → +10.</p>
+        </div>
+      </div>
+
+      <!-- SLIDE 6/6: WIN CONDITIONS -->
+      <div style="flex-shrink:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:32px;">
+        <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="240" height="160" viewBox="0 0 240 160" fill="none">
+            <text x="120" y="44" font-family="Courier New" font-size="40" text-anchor="middle">🏆</text>
+            <rect x="6"  y="62" width="70" height="28" rx="5" fill="#1a2010" stroke="#2a3820"/>
+            <text x="41" y="80" font-family="Courier New" font-size="11" fill="#8fc828" text-anchor="middle" font-weight="700">SCORE WIN</text>
+            <rect x="84" y="62" width="70" height="28" rx="5" fill="#1a2010" stroke="#2a3820"/>
+            <text x="119" y="80" font-family="Courier New" font-size="11" fill="#8fc828" text-anchor="middle" font-weight="700">CACTUS 🌵</text>
+            <rect x="162" y="62" width="70" height="28" rx="5" fill="#1a2010" stroke="#2a3820"/>
+            <text x="197" y="80" font-family="Courier New" font-size="11" fill="#8fc828" text-anchor="middle" font-weight="700">LOCK 🔒</text>
+          </svg>
+        </div>
+        <div style="max-width:320px;">
+          <div style="font-size:11px;letter-spacing:0.28em;color:#5a6e40;font-weight:700;margin-bottom:12px;">06 / 06</div>
+          <h2 style="font-size:22px;font-weight:700;color:#f0f2e6;margin-bottom:16px;">How to Win</h2>
+          <p style="font-size:15px;color:#a8b890;line-height:1.8;"><strong style="color:#c8f060;">Score Win:</strong> play all pieces, highest score.<br><br><strong style="color:#c8f060;">Cactus Win:</strong> no moves left — unused pieces penalize score.<br><br><strong style="color:#c8f060;">Lock Win:</strong> surround the board — instant victory.</p>
+        </div>
+      </div>
+
+    </div><!-- /htp-track -->
+  </div><!-- /slides wrap -->
+
+  <!-- Footer nav -->
+  <div style="position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:16px;padding:16px 24px;border-top:1px solid #2a3020;background:#0a0b09;">
+    <button id="htp-back" onclick="htpNav(-1)" disabled style="background:transparent;border:1px solid #2a3020;border-radius:8px;color:#f0f2e6;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:0.12em;padding:11px 22px;cursor:pointer;min-width:90px;transition:all 0.18s;opacity:0.22;pointer-events:none;">← Back</button>
+    <div id="htp-dots" style="display:flex;gap:7px;align-items:center;">
+      <div class="hd" style="width:20px;height:6px;border-radius:3px;background:#c8f060;transition:all 0.25s;"></div>
+      <div class="hd" style="width:6px;height:6px;border-radius:50%;background:#3a4030;transition:all 0.25s;"></div>
+      <div class="hd" style="width:6px;height:6px;border-radius:50%;background:#3a4030;transition:all 0.25s;"></div>
+      <div class="hd" style="width:6px;height:6px;border-radius:50%;background:#3a4030;transition:all 0.25s;"></div>
+      <div class="hd" style="width:6px;height:6px;border-radius:50%;background:#3a4030;transition:all 0.25s;"></div>
+      <div class="hd" style="width:6px;height:6px;border-radius:50%;background:#3a4030;transition:all 0.25s;"></div>
+    </div>
+    <button id="htp-skip" onclick="htpSkip()" style="background:transparent;border:none;color:#7a8a60;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.14em;cursor:pointer;padding:11px 10px;text-decoration:underline;text-underline-offset:3px;">Skip</button>
+    <button id="htp-next" onclick="htpNav(1)" style="background:#c8f060;border:1px solid #c8f060;border-radius:8px;color:#0a0b09;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:0.12em;padding:11px 22px;cursor:pointer;min-width:90px;transition:all 0.18s;">Next →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     LOBBY (new — with tooltips & nickname flow)
+══════════════════════════════════════ -->
+<div id="lobby" style="display:none;">
+  <div style="width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;">
+    <div class="lobby-logo">CACTUS</div>
+    <div class="lobby-sub">2-Player Strategy Game</div>
+    <div class="lobby-btns" style="width:100%;">
+      <div style="position:relative;">
+        <button class="lobby-btn lobby-btn-primary" id="btn-create">
+          <span id="lbl-create">Create Game</span>
+          <span class="btn-arrow">→</span>
+        </button>
+        <button class="info-tip-btn" onclick="showTip('create')" title="">i
+          <div class="tip-box">Play on separate devices with a friend — you create the room, they enter your code.</div>
+        </button>
+      </div>
+      <div style="position:relative;">
+        <button class="lobby-btn lobby-btn-secondary" id="btn-join">
+          <span id="lbl-join">Enter Code</span>
+          <span class="btn-arrow">→</span>
+        </button>
+        <button class="info-tip-btn" onclick="showTip('enter')" title="">i
+          <div class="tip-box">Your friend created a room — enter the 4-letter code they shared.</div>
+        </button>
+      </div>
+      <div style="position:relative;">
+        <button class="lobby-btn lobby-btn-ghost" id="btn-offline">
+          <span id="lbl-offline">Play on One Screen</span>
+          <span class="btn-arrow">→</span>
+        </button>
+        <button class="info-tip-btn" onclick="showTip('offline')" title="">i
+          <div class="tip-box">Both players take turns on this device.</div>
+        </button>
+      </div>
+    </div>
+    <button onclick="htpShow()" style="background:transparent;border:none;color:#7a8a60;font-family:'Courier New',monospace;font-size:13px;letter-spacing:0.16em;cursor:pointer;padding:8px 0;text-decoration:underline;text-underline-offset:4px;margin-top:8px;">How to Play?</button>
+    <button onclick="showCredits()" style="background:transparent;border:none;color:#3a4a28;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.16em;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px;margin-top:2px;transition:color 0.18s;" onmouseover="this.style.color='#5a6e40'" onmouseout="this.style.color='#3a4a28'">Credits</button>
+  </div>
+</div>
+
+<!-- CREDITS MODAL -->
+<div id="credits-modal" onclick="hideCredits()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;padding:32px;">
+  <div onclick="event.stopPropagation()" style="background:#111409;border:1px solid #3a3f2a;border-radius:14px;padding:36px 32px;max-width:300px;width:100%;text-align:center;">
+    <div style="font-size:28px;font-weight:900;letter-spacing:0.3em;color:#c8f060;margin-bottom:6px;">CACTUS</div>
+    <div style="font-size:11px;letter-spacing:0.2em;color:#5a6e40;margin-bottom:28px;">2-Player Strategy Game</div>
+    <div style="font-size:11px;letter-spacing:0.2em;color:#5a6e40;margin-bottom:12px;font-weight:700;">DESIGNED BY</div>
+    <div style="font-size:15px;color:#c8c9b8;letter-spacing:0.06em;margin-bottom:6px;">Melike Mühür</div>
+    <div style="font-size:15px;color:#c8c9b8;letter-spacing:0.06em;margin-bottom:6px;">Neslihan Tepehan</div>
+    <div style="font-size:15px;color:#c8c9b8;letter-spacing:0.06em;margin-bottom:28px;">Aykut Yıldırım</div>
+    <div style="font-size:11px;letter-spacing:0.2em;color:#5a6e40;margin-bottom:28px;">Digital Edition — 2026</div>
+    <button onclick="hideCredits()" style="background:transparent;border:1px solid #3a3f2a;border-radius:8px;color:#a8b890;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.14em;padding:10px 28px;cursor:pointer;transition:all 0.18s;" onmouseover="this.style.borderColor='#5a6e40'" onmouseout="this.style.borderColor='#3a3f2a'">Close</button>
+  </div>
+</div>
+
+<!-- NICKNAME — CREATE -->
+<div id="nick-create" style="display:none;position:absolute;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;z-index:90;gap:0;">
+  <button onclick="showLobby()" style="position:absolute;top:20px;left:20px;background:transparent;border:1px solid #2a3020;border-radius:7px;color:#a8b890;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.1em;padding:8px 16px;cursor:pointer;">← Back</button>
+  <div style="font-size:12px;letter-spacing:0.28em;color:#c8c9b8;font-weight:700;margin-bottom:22px;">PLAYER NICKNAME</div>
+  <input id="nick-create-input" type="text" maxlength="16" placeholder="nickname (optional)" autocomplete="off" spellcheck="false"
+    style="background:rgba(255,255,255,0.06);border:1px solid #2a3020;border-radius:10px;color:#f0f2e6;font-family:'Courier New',monospace;font-size:16px;padding:15px 20px;outline:none;letter-spacing:0.06em;width:100%;max-width:290px;margin-bottom:10px;text-align:center;-webkit-appearance:none;"
+    onkeydown="if(event.key==='Enter') nickNextCreate()">
+  <div style="font-size:12px;letter-spacing:0.1em;color:#a8b890;margin-bottom:28px;">Leave blank to play as Player 1</div>
+  <button onclick="nickNextCreate()" style="background:#c8f060;border:none;border-radius:10px;color:#0a0b09;font-family:'Courier New',monospace;font-size:14px;font-weight:700;letter-spacing:0.16em;padding:16px 44px;cursor:pointer;">Next →</button>
+</div>
+
+<!-- NICKNAME — ENTER CODE -->
+<div id="nick-enter" style="display:none;position:absolute;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;z-index:90;gap:0;">
+  <button onclick="showLobby()" style="position:absolute;top:20px;left:20px;background:transparent;border:1px solid #2a3020;border-radius:7px;color:#a8b890;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.1em;padding:8px 16px;cursor:pointer;">← Back</button>
+  <div style="font-size:12px;letter-spacing:0.28em;color:#c8c9b8;font-weight:700;margin-bottom:22px;">PLAYER NICKNAME</div>
+  <input id="nick-enter-input" type="text" maxlength="16" placeholder="nickname (optional)" autocomplete="off" spellcheck="false"
+    style="background:rgba(255,255,255,0.06);border:1px solid #2a3020;border-radius:10px;color:#f0f2e6;font-family:'Courier New',monospace;font-size:16px;padding:15px 20px;outline:none;letter-spacing:0.06em;width:100%;max-width:290px;margin-bottom:10px;text-align:center;-webkit-appearance:none;"
+    onkeydown="if(event.key==='Enter') nickNextEnter()">
+  <div style="font-size:12px;letter-spacing:0.1em;color:#a8b890;margin-bottom:28px;">Leave blank to play as Player 2</div>
+  <button onclick="nickNextEnter()" style="background:#c8f060;border:none;border-radius:10px;color:#0a0b09;font-family:'Courier New',monospace;font-size:14px;font-weight:700;letter-spacing:0.16em;padding:16px 44px;cursor:pointer;">Next →</button>
+</div>
+
+<!-- ── ROOM (kod oluşturuldu, bekleniyor) ── -->
+<div id="room-screen">
+  <div class="room-title" id="room-title">Game Code</div>
+  <div class="room-code-display" id="room-code-text">——</div>
+  <button class="room-copy-btn" id="room-copy-btn">Copy</button>
+  <div class="room-desc" id="room-desc">
+    Share this code with your friend.<br>
+    The game starts automatically when they join.
+  </div>
+  <div class="room-waiting">
+    <div class="room-waiting-dot"></div>
+    <span id="room-waiting-text">Waiting for friend...</span>
+  </div>
+  <button class="room-cancel-btn" id="room-cancel-text">Cancel</button>
+</div>
+
+<!-- ── JOIN (kod gir) ── -->
+<div id="join-screen">
+  <div class="room-title" id="join-title">Enter Code</div>
+  <div class="room-desc" style="margin-bottom:4px;" id="join-desc">Enter the 4-letter code from your friend</div>
+  <input class="join-code-input" id="join-code-input" type="text" maxlength="4" placeholder="KBMT"
+         autocomplete="off" spellcheck="false"
+         oninput="joinInputChanged(this)"
+         onkeydown="if(event.key==='Enter') joinSubmit()">
+  <div class="join-error" id="join-error"></div>
+  <button class="lobby-btn lobby-btn-primary" style="max-width:280px;margin-top:4px;" id="btn-join-submit">
+    <span id="lbl-join-submit">Join Game</span>
+    <span class="btn-arrow">→</span>
+  </button>
+  <button class="room-cancel-btn" id="lbl-join-cancel">Cancel</button>
+</div>
+
+<!-- ── COUNTDOWN ── -->
+<div id="countdown-screen">
+  <div class="countdown-vs">Game Starting</div>
+  <div class="countdown-names">
+    <div class="countdown-p1" id="cd-p1">Player 1</div>
+    <div class="countdown-sep">VS</div>
+    <div class="countdown-p2" id="cd-p2">Player 2</div>
+  </div>
+  <div class="countdown-number" id="cd-number">3</div>
+</div>
+
+<!-- Tooltip popup (mobile) -->
+<div id="tip-popup" onclick="hideTip()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:200;align-items:center;justify-content:center;padding:32px;">
+  <div onclick="event.stopPropagation()" style="background:#1c2214;border:1px solid #3a4030;border-radius:14px;padding:26px 24px;max-width:290px;text-align:center;">
+    <div id="tip-popup-text" style="font-size:14px;color:#a8b890;line-height:1.7;letter-spacing:0.04em;margin-bottom:20px;"></div>
+    <button onclick="hideTip()" style="background:transparent;border:1px solid #2a3020;border-radius:8px;color:#a8b890;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.14em;padding:10px 24px;cursor:pointer;">Got it</button>
+  </div>
+</div>
+
+<div id="loading" style="display:none;">
+  <div class="logo">CACTUS</div>
+  <div class="sub">Strategy Game</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+</div>
+
+<div id="canvas-container" style="display:none;"></div>
+
+<div id="hud" style="display:none;">
+  <!-- Top bar -->
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="game-title">⬡ cactus</div>
+      <button id="rules-btn" onclick="openRulesModal()" style="
+        background:rgba(255,255,255,0.07);border:1px solid var(--border);
+        color:var(--text-muted);width:26px;height:26px;border-radius:50%;
+        font-family:monospace;font-size:13px;font-weight:700;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;
+        transition:all 0.2s;flex-shrink:0;
+      ">?</button>
+    </div>
+
+    <div class="score-panels">
+      <div class="score-card p1 active" id="score-p1">
+        <div class="player-label" data-i18n="player1">Player 1</div>
+        <div class="score-value" id="val-p1">0</div>
+        <div class="pieces-left" id="pieces-p1" data-i18n-tpl="pieces">10 pieces</div>
+      </div>
+      <div class="turn-indicator" id="turn-dot"></div>
+      <div class="score-card p2" id="score-p2">
+        <div class="player-label" data-i18n="player2">Player 2</div>
+        <div class="score-value" id="val-p2">0</div>
+        <div class="pieces-left" id="pieces-p2" data-i18n-tpl="pieces">10 pieces</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;">
+      <!-- game-phase gizli ama JS için tutuluyor -->
+      <div class="game-title" id="game-phase" style="display:none;">ready</div>
+    </div>
+  </div>
+
+  <!-- Info panel -->
+  <div id="info-panel">
+    <div class="info-chip">
+      <strong id="turn-round">1</strong>
+      Move
+    </div>
+
+    <!-- Son hamle puan özeti -->
+    <div class="info-chip" id="last-score-chip" style="display:none;min-width:130px;">
+      <strong id="last-score-pts" style="font-size:15px;">+0</strong>
+      <div id="last-score-desc" style="font-size:10px;line-height:1.5;color:var(--text-muted);font-weight:600;margin-top:2px;"></div>
+    </div>
+
+    <!-- İnceleme modu: Skor kartı + Yeni Oyun -->
+    <div id="inspect-end-btn" style="display:none;pointer-events:all;">
+      <!-- Oyun bitti başlık -->
+      <div style="
+        background:rgba(255,255,255,0.04);border:1px solid var(--border);
+        border-radius:8px;padding:10px 12px;margin-bottom:6px;
+      ">
+        <div id="inspect-win-type" style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--accent);margin-bottom:6px;text-align:center;"></div>
+        <div id="inspect-win-player" style="font-size:13px;font-weight:900;letter-spacing:0.05em;text-align:center;margin-bottom:8px;"></div>
+        <!-- Skor satırı -->
+        <div style="display:flex;justify-content:space-between;gap:8px;">
+          <div style="text-align:center;flex:1;">
+            <div style="font-size:9px;letter-spacing:0.15em;color:var(--p1);font-weight:700;margin-bottom:2px;">O1</div>
+            <div id="inspect-score-p1" style="font-size:20px;font-weight:900;color:#f0f2e6;line-height:1;">0</div>
+            <div style="font-size:8px;color:var(--text-muted);">puan</div>
+          </div>
+          <div style="width:1px;background:var(--border);"></div>
+          <div style="text-align:center;flex:1;">
+            <div style="font-size:9px;letter-spacing:0.15em;color:var(--p2);font-weight:700;margin-bottom:2px;">O2</div>
+            <div id="inspect-score-p2" style="font-size:20px;font-weight:900;color:#f0f2e6;line-height:1;">0</div>
+            <div style="font-size:8px;color:var(--text-muted);">puan</div>
+          </div>
+        </div>
+      </div>
+      <!-- Yeni Oyun butonu -->
+      <button onclick="replayGame()" style="
+        background:#c8f060;color:#0a0b09;border:none;
+        border-radius:8px;padding:10px 14px;cursor:pointer;
+        font-family:'Courier New',monospace;font-size:12px;
+        font-weight:700;letter-spacing:0.12em;width:100%;
+      " id="inspect-end-label">Yeni Oyun</button>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div id="bottombar">
+    <div id="turn-display">
+      <div class="turn-label">Turn</div>
+      <div class="turn-name p1" id="turn-name">Player 1</div>
+    </div>
+
+    <button id="phase-btn" onclick="openPiecePanel()">Select Piece →</button>
+
+    <div id="controls-hint">
+      <span>Drag</span> rotate &nbsp;
+      <span>Scroll</span> zoom<br>
+      <span>Q/E</span> X &nbsp; <span>W/S</span> Y &nbsp; <span>A/D</span> Z
+    </div>
+  </div>
+<!-- Piece Panel -->
+<div id="piece-panel">
+  <div class="panel-tabs">
+    <button class="panel-tab p1-tab active" id="tab-p1" onclick="switchPanelTab(1)">● P1 Pieces</button>
+    <button class="panel-tab p2-tab" id="tab-p2" onclick="switchPanelTab(2)">● P2 Pieces</button>
+    <button id="panel-pin-btn" onclick="togglePanelPin()" title="Pin panel">📌</button>
+    <button class="panel-tab" style="flex:0;padding:10px 10px;" onclick="closePiecePanel()">✕</button>
+  </div>
+  <div class="panel-player-label p1" id="panel-player-label">Selection: Player 1</div>
+  <div id="piece-list"></div>
+</div>
+
+<!-- Floating labels -->
+<div id="preview-label">Piece Selected — Rotate & Place</div>
+<div id="rotation-hint">
+  <span>Q</span>/<span>E</span> X axis &nbsp;
+  <span>W</span>/<span>S</span> Y axis &nbsp;
+  <span>A</span>/<span>D</span> Z axis
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+
+let currentLang = 'en';
+
+const I18N = {
+  en: {
+    player1: 'Player 1', player2: 'Player 2',
+    pieces: (n) => `${n} pieces`,
+    turn_label: 'Turn',
+    phase_inspect: 'ready', phase_select: 'select',
+    phase_place: 'place', phase_turn: 'rotate',
+    btn_select: 'Select Piece →', btn_place: 'Place →', btn_cancel: '✕ Cancel',
+    btn_view_pieces: 'Your Pieces →',    board_units: 'Board Units', move: 'Move',
+    highlight_last: 'Highlight last move',
+    confirm_title: 'Place here?', confirm_msg: 'Place the piece at this position',
+    confirm_ok: '✓ Confirm', confirm_cancel: 'Cancel',
+    win_kilit: '🔒 Lock Win!', win_skor: '🏆 Score Win!', win_kaktus: '🌵 Cactus Win!',
+    win_draw: 'Draw!', win_player: (p) => `Player ${p} Wins!`,
+    replay: 'Play Again',
+    rules_title: 'CACTUS — RULES',
+    tab_rules: 'rules', tab_example: 'example',
+    no_moves: (p) => `Player ${p} — No valid moves remaining`,
+    end_game: 'End Game', inspect: 'Inspect',
+    preview_label: 'Piece Selected — Rotate & Place',
+    panel_selection: 'Selection:',
+  }
+};
+
+function t(key, ...args) {
+  const val = I18N[currentLang][key];
+  return typeof val === 'function' ? val(...args) : (val || key);
+}
+
+function updateInspectBtn() {
+  const label = document.getElementById('inspect-end-label');
+  if (label) label.textContent = t('end_game');
+}
+
+// ─── KURAL MODALI ─────────────────────────────────────────────────────────────
+const RULES_CONTENT = {
+  tr: {
+    sections: [
+      {
+        title: 'Temel Kurallar',
+        items: [
+          'Oyun 2 kişilik, sıra tabanlıdır. Her oyuncunun 10 taşı vardır.',
+          'İlk taş, gövdenin üst veya alt koyu bölgesine temas edecek şekilde yerleştirilir.',
+          'Sonraki her taş, bir önceki rakip taşına en az 1 birimden temas etmelidir.',
+          'Taşlar gövdenin dışına yapışır — içine giremez.',
+          'Kuşbakışı bakıldığında taş gövdeden en fazla 1 kademe dışarı taşabilir.',
+        ]
+      },
+      {
+        title: 'Puanlama',
+        items: [
+          '📦 Her taş, birim sayısı kadar temel puan getirir.',
+          '🤝 Temas ettiğiniz rakip birim başına +1 ekstra puan kazanırsınız.',
+          '⚡ Tek bir biriminiz aynı anda 2+ rakip birime temas ederse +5 Yerleşim Bonusu.',
+          '⭐ Herhangi bir yönde 8+ birim aralıksız devamlılık → +10 Devamlılık Bonusu.',
+          '🎉 Aynı devamlılık 16 birime ulaşırsa → +20 Devamlılık Bonusu.',
+        ]
+      },
+      {
+        title: 'Oyun Sonu',
+        items: [
+          '🏆 Skor Oyun: Tüm taşlar bitince en yüksek puan kazanır.',
+          '🌵 Kaktüs Oyun: Yerleştirilemez hale gelinince, elde kalan taş puanları düşülür.',
+          '🔒 Kilit Oyun: Gövdeyi yatayda (12 birim) veya dikeyde (20 birim) aralıksız sararsanız anında kazanırsınız.',
+        ]
+      },
+    ]
+  },
+  en: {
+    sections: [
+      {
+        title: 'Basic Rules',
+        items: [
+          'The game is 2-player, turn-based. Each player has 10 pieces.',
+          'The first piece must touch the dark zone at the top or bottom of the board.',
+          'Each subsequent piece must touch at least 1 unit of the opponent\'s last piece.',
+          'Pieces attach to the outside of the board — they cannot enter it.',
+          'When viewed from above, a piece may extend at most 1 step beyond the board edge.',
+        ]
+      },
+      {
+        title: 'Scoring',
+        items: [
+          '📦 Each piece scores points equal to its number of units.',
+          '🤝 Earn +1 extra point for each opponent unit you touch.',
+          '⚡ If a single unit touches 2+ opponent units at once → +5 Placement Bonus.',
+          '⭐ 8+ units of your color in unbroken sequence (any direction) → +10 Continuity Bonus.',
+          '🎉 Same sequence reaching 16 units → +20 Continuity Bonus.',
+        ]
+      },
+      {
+        title: 'Game End',
+        items: [
+          '🏆 Score Win: When all pieces are placed, highest score wins.',
+          '🌵 Cactus Win: When no moves remain, leftover piece values are deducted.',
+          '🔒 Lock Win: Complete an unbroken loop around the board — 12 units horizontal or 20 vertical — to win instantly.',
+        ]
+      },
+    ]
+  }
+};
+
+const EXAMPLE_CONTENT = {
+  tr: [
+    { num: '1. HAMLE', text: 'İlk oyuncu taşını seçer ve gövdenin üst ya da alt koyu bölgesine temas edecek şekilde yerleştirir. 4 birimlik taş → 4 puan.' },
+    { num: '2. HAMLE', text: 'İkinci oyuncu taşını, ilk oyuncunun taşına temas ettirecek şekilde yerleştirmek zorundadır. Temas ettiği birim kadar ekstra puan kazanır.' },
+    { num: 'YERLEŞİM BONUSU', text: 'Tek bir biriminiz aynı anda rakibin 2 veya daha fazla birimine temas ederse +5 bonus puan kazanırsınız.' },
+    { num: 'DEVAMLlLIK BONUSU', text: 'Kendi renginizdeki taşlar herhangi bir yönde 8 birim aralıksız sıralanırsa +10 bonus. 16 birime ulaşınca +20 bonus.' },
+    { num: 'KİLİT OYUN', text: 'Gövdenin etrafını yatayda 12 birim veya dikeyde 20 birim aralıksız sararsan, skor ne olursa olsun anında kazanırsın.' },
+  ],
+  en: [
+    { num: 'MOVE 1', text: 'The first player selects a piece and places it touching the dark zone at the top or bottom. A 4-unit piece → 4 points.' },
+    { num: 'MOVE 2', text: 'The second player must place their piece touching the first player\'s last piece. They earn extra points for each unit touched.' },
+    { num: 'PLACEMENT BONUS', text: 'If a single unit of yours touches 2 or more opponent units at once, you earn +5 bonus points.' },
+    { num: 'CONTINUITY BONUS', text: 'If your pieces form an unbroken line of 8+ units in any direction → +10 bonus. Reaching 16 units → +20 bonus.' },
+    { num: 'LOCK WIN', text: 'Surround the board with an unbroken loop — 12 units horizontally or 20 vertically — to win instantly regardless of score.' },
+  ]
+};
+
+let currentRulesTab = 'rules';
+
+function openRulesModal() {
+  renderRulesContent();
+  document.getElementById('rules-modal').classList.add('visible');
+}
+
+function closeRulesModal() {
+  document.getElementById('rules-modal').classList.remove('visible');
+}
+
+function switchRulesTab(tab) {
+  currentRulesTab = tab;
+  document.getElementById('rules-content').style.display = tab === 'rules' ? 'block' : 'none';
+  document.getElementById('example-content').style.display = tab === 'example' ? 'block' : 'none';
+  document.getElementById('rtab-rules').style.borderBottomColor = tab === 'rules' ? '#c8f060' : 'transparent';
+  document.getElementById('rtab-rules').style.color = tab === 'rules' ? '#f0f2e6' : '#a8ad94';
+  document.getElementById('rtab-example').style.borderBottomColor = tab === 'example' ? '#c8f060' : 'transparent';
+  document.getElementById('rtab-example').style.color = tab === 'example' ? '#f0f2e6' : '#a8ad94';
+}
+
+function renderRulesContent() {
+  document.getElementById('rtab-rules').textContent = t('tab_rules');
+  document.getElementById('rtab-example').textContent = t('tab_example');
+  document.querySelector('[data-i18n="rules_title"]').textContent = t('rules_title');
+
+  const rulesData = RULES_CONTENT['en'];
+  let html = '';
+  rulesData.sections.forEach(sec => {
+    html += `<div class="rules-section"><h3>${sec.title}</h3><ul>`;
+    sec.items.forEach(item => { html += `<li>${item}</li>`; });
+    html += `</ul></div>`;
+  });
+  document.getElementById('rules-text').innerHTML = html;
+
+  const exData = EXAMPLE_CONTENT['en'];
+  let exHtml = '';
+  exData.forEach(step => {
+    exHtml += `<div class="example-step"><div class="step-num">${step.num}</div><p>${step.text}</p></div>`;
+  });
+  exHtml += `<div class="coming-soon">🎬 Animated example coming soon.</div>`;
+  document.getElementById('example-text').innerHTML = exHtml;
+}
+
+
+const GameState = {
+  currentPlayer: 1,
+  scores: [0, 0],
+  piecesLeft: [10, 10],
+  round: 1,
+  phase: 'inspect',
+  lastPlacedCubes: [],
+  selectedPieceIndex: -1,
+  usedPieces: [[], []],
+  inspectMode: false,
+  // Continuity bonus takibi: her oyuncu için hangi eşikler geçildi
+  // { p1: { t8: false, t16: false }, p2: { t8: false, t16: false } }
+  continuityThresholds: {
+    p1: { t8: false, t16: false },
+    p2: { t8: false, t16: false },
+  },
+};
+
+// ─── PIECE DEFINITIONS ────────────────────────────────────────────────────────
+
+
+
+const PIECE_DEFS = [
+  { id:0, name:'2-unit Rod',      units:2, cubes:[[0,0,0],[1,0,0]] },
+  { id:1, name:'3-unit Corner',   units:3, cubes:[[0,0,0],[0,1,0],[1,0,0]] },
+  { id:2, name:'4-unit L',        units:4, cubes:[[0,0,0],[0,1,0],[0,2,0],[1,0,0]] },
+  { id:3, name:'4-unit Square',   units:4, cubes:[[0,0,0],[1,0,0],[0,0,1],[1,0,1]] },
+  { id:4, name:'5-unit Long L',   units:5, cubes:[[0,0,0],[0,1,0],[0,2,0],[0,3,0],[1,0,0]] },
+  { id:5, name:'5-unit Stair',    units:5, cubes:[[0,0,0],[0,1,0],[0,2,0],[1,0,0],[1,1,0]] },
+  { id:6, name:'6-unit Wall',     units:6, cubes:[[0,0,0],[1,0,0],[2,0,0],[0,1,0],[1,1,0],[2,1,0]] },
+  { id:7, name:'6-unit Stair',    units:6, cubes:[[0,0,0],[0,1,0],[0,2,0],[0,3,0],[1,0,0],[1,1,0]] },
+  { id:8, name:'7-unit Stair',    units:7, cubes:[[0,0,0],[0,1,0],[0,2,0],[0,3,0],[1,0,0],[1,1,0],[1,2,0]] },
+  { id:9, name:'8-unit Wall',     units:8, cubes:[[0,0,0],[0,1,0],[0,2,0],[0,3,0],[1,0,0],[1,1,0],[1,2,0],[1,3,0]] },
+];
+
+
+
+// Tüm P1 taşları: 6-unit Stair (4+2) rengi
+const P1_PIECE_COLOR = 0x8fc828;
+const P1_COLORS = Array(10).fill(P1_PIECE_COLOR);
+
+// Tüm P2 taşları: 6-unit Stair (4+2) rengi
+const P2_PIECE_COLOR = 0xd85a30;
+const P2_COLORS = Array(10).fill(P2_PIECE_COLOR);
+
+// ─── SCENE SETUP ─────────────────────────────────────────────────────────────
+const container = document.getElementById('canvas-container');
+const W = () => container.clientWidth || window.innerWidth;
+const H = () => container.clientHeight || window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+renderer.setSize(W(), H());
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x0a0b09, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0a0b09, 0.012);
+
+const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 200);
+camera.position.set(8, 10, 16);
+camera.lookAt(0, 0, 0);
+
+
+const ambientLight = new THREE.AmbientLight(0x8899aa, 0.45);
+scene.add(ambientLight);
+
+const mainLight = new THREE.DirectionalLight(0xfff8f0, 1.8);
+mainLight.position.set(6, 16, 10);
+mainLight.castShadow = true;
+mainLight.shadow.mapSize.set(2048, 2048);
+mainLight.shadow.camera.near = 0.5;
+mainLight.shadow.camera.far = 60;
+mainLight.shadow.camera.left = -15;
+mainLight.shadow.camera.right = 15;
+mainLight.shadow.camera.top = 22;
+mainLight.shadow.camera.bottom = -22;
+mainLight.shadow.bias = -0.001;
+scene.add(mainLight);
+
+const fillLight = new THREE.DirectionalLight(0xaaccff, 0.4);
+fillLight.position.set(-8, 2, -6);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffeebb, 0.35);
+rimLight.position.set(2, -6, -10);
+scene.add(rimLight);
+
+
+const pointLight = new THREE.PointLight(0xfff0cc, 0.6, 25);
+pointLight.position.set(3, 5, 8);
+scene.add(pointLight);
+
+// ─── BOARD GEOMETRY ──────────────────────────────────────────────────────────
+const UNIT = 1.0;
+const GAP  = 0.04;
+const BEVEL = 0.06;
+
+// Renkler
+const MAT_DARK_GREEN = new THREE.MeshStandardMaterial({
+  color: 0x7a5c38,
+  roughness: 0.7,
+  metalness: 0.04,
+});
+const MAT_LIGHT_GREEN = new THREE.MeshStandardMaterial({
+  color: 0xc4a46e,
+  roughness: 0.65,
+  metalness: 0.02,
+});
+
+
+function getPieceMaterial(player, units) {
+  const idx = units - 2;
+  const colors = player === 1 ? P1_COLORS : P2_COLORS;
+  const color = colors[Math.min(idx, colors.length - 1)];
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.45,
+    metalness: 0.08,
+    envMapIntensity: 0.5,
+  });
+}
+
+
+function createRoundedBoxGeometry(size, radius) {
+
+
+  const geo = new THREE.BoxGeometry(size, size, size, 2, 2, 2);
+
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i);
+    let y = pos.getY(i);
+    let z = pos.getZ(i);
+    const half = size / 2;
+    const clamp = (v) => Math.max(-half + radius, Math.min(half - radius, v));
+    // normalize + bevel
+    const len = Math.sqrt(x*x + y*y + z*z);
+    const factor = 1 - (radius / len) * 0.15;
+    pos.setXYZ(i, x * factor, y * factor, z * factor);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// Board group — merkez orijinde
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+
+// Grid: x: 0,1  y: 0..7  z: 0,1
+
+const boardCubes = [];
+
+function isBoardDark(x, y, z) {
+  return y <= 0 || y >= 7;
+
+
+
+}
+
+const cubeGeo = createRoundedBoxGeometry(UNIT - GAP * 2, BEVEL);
+
+for (let y = 0; y < 8; y++) {
+  for (let x = 0; x < 2; x++) {
+    for (let z = 0; z < 2; z++) {
+      const isDark = (y === 0 || y === 7);
+      const mat = isDark ? MAT_DARK_GREEN.clone() : MAT_LIGHT_GREEN.clone();
+      const mesh = new THREE.Mesh(cubeGeo, mat);
+
+      // Merkez: x: -0.5..0.5, y: -3.5..3.5, z: -0.5..0.5
+      mesh.position.set(
+        (x - 0.5) * UNIT,
+        (y - 3.5) * UNIT,
+        (z - 0.5) * UNIT
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+
+      mesh.userData = {
+        type: 'board',
+        gx: x, gy: y, gz: z,
+        isDark,
+        baseMat: mat,
+      };
+
+      boardGroup.add(mesh);
+      boardCubes.push(mesh);
+    }
+  }
+}
+
+// Subtle edge lines — grid outline
+const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(UNIT - GAP*2, UNIT - GAP*2, UNIT - GAP*2));
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 });
+
+boardCubes.forEach(cube => {
+  const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+  edges.position.copy(cube.position);
+  boardGroup.add(edges);
+});
+
+// ─── ORBIT CONTROLS (Manuel) ─────────────────────────────────────────────────
+let orbit = {
+  isDragging: false,
+  lastX: 0, lastY: 0,
+  rotX: 0.3,
+  rotY: -0.5,
+  distance: 28,
+  minDist: 6,
+  maxDist: 35,
+  targetRotX: 0.3,
+  targetRotY: -0.5,
+  targetDist: 28,
+};
+
+function updateCamera() {
+  const x = orbit.distance * Math.sin(orbit.rotY) * Math.cos(orbit.rotX);
+  const y = orbit.distance * Math.sin(orbit.rotX);
+  const z = orbit.distance * Math.cos(orbit.rotY) * Math.cos(orbit.rotX);
+  camera.position.set(x, y, z);
+  camera.lookAt(0, 0, 0);
+}
+
+// Mouse events
+container.addEventListener('mousedown', (e) => {
+  orbit.isDragging = true;
+  orbit.lastX = e.clientX;
+  orbit.lastY = e.clientY;
+});
+
+document.addEventListener('mouseup', () => { orbit.isDragging = false; });
+
+document.addEventListener('mousemove', (e) => {
+  if (!orbit.isDragging) return;
+  const dx = e.clientX - orbit.lastX;
+  const dy = e.clientY - orbit.lastY;
+  orbit.targetRotY -= dx * 0.008;
+  orbit.targetRotX -= dy * 0.008;
+  orbit.targetRotX = Math.max(-1.4, Math.min(1.4, orbit.targetRotX));
+  orbit.lastX = e.clientX;
+  orbit.lastY = e.clientY;
+});
+
+container.addEventListener('wheel', (e) => {
+  orbit.targetDist += e.deltaY * 0.025;
+  orbit.targetDist = Math.max(orbit.minDist, Math.min(orbit.maxDist, orbit.targetDist));
+}, { passive: true });
+
+
+let lastTouchDist = 0;
+let lastTouchX = 0;
+let lastTouchY = 0;
+let touchDragging = false;
+let lastTwoFingerCx = null;
+let lastTwoFingerCy = null;
+
+container.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    touchDragging = true;
+    lastTwoFingerCx = null; lastTwoFingerCy = null;
+    lastTouchX = e.touches[0].clientX;
+    lastTouchY = e.touches[0].clientY;
+
+    if (typeof isMobile === 'function' && isMobile() &&
+        GameState.selectedPieceIndex >= 0 && GameState.phase === 'place' && !mobileOrbitActive) {
+      lastMobileTouchX = e.touches[0].clientX;
+      lastMobileTouchY = e.touches[0].clientY;
+      if (typeof updateMobileGhost === 'function') updateMobileGhost(lastMobileTouchX, lastMobileTouchY);
+    }
+  } else if (e.touches.length === 2) {
+    touchDragging = false;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastTouchDist = Math.sqrt(dx*dx + dy*dy);
+  }
+}, { passive: true });
+
+container.addEventListener('touchmove', (e) => {
+  const oneFinger = e.touches.length === 1;
+  const twoFinger = e.touches.length === 2;
+
+  if (oneFinger && touchDragging) {
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    const dx = x - lastTouchX;
+    const dy = y - lastTouchY;
+
+    if (isMobile() && GameState.selectedPieceIndex >= 0 && GameState.phase === 'place') {
+
+      lastMobileTouchX = x;
+      lastMobileTouchY = y;
+      if (typeof updateMobileGhost === 'function') updateMobileGhost(x, y);
+    } else {
+      // Normal orbit — 1 parmak
+      orbit.targetRotY -= dx * 0.008;
+      orbit.targetRotX -= dy * 0.008;
+      orbit.targetRotX = Math.max(-1.4, Math.min(1.4, orbit.targetRotX));
+    }
+    lastTouchX = x;
+    lastTouchY = y;
+
+  } else if (twoFinger) {
+    const t0x = e.touches[0].clientX, t0y = e.touches[0].clientY;
+    const t1x = e.touches[1].clientX, t1y = e.touches[1].clientY;
+
+    // Pinch zoom — her zaman
+    const dist = Math.sqrt((t0x-t1x)**2 + (t0y-t1y)**2);
+    orbit.targetDist -= (dist - lastTouchDist) * 0.04;
+    orbit.targetDist = Math.max(orbit.minDist, Math.min(orbit.maxDist, orbit.targetDist));
+    lastTouchDist = dist;
+
+
+    if (isMobile() && GameState.selectedPieceIndex >= 0 && GameState.phase === 'place') {
+      const cx = (t0x + t1x) / 2;
+      const cy = (t0y + t1y) / 2;
+      // lastTwoFingerCx/Cy ile delta hesapla
+      if (lastTwoFingerCx !== null) {
+        const ddx = cx - lastTwoFingerCx;
+        const ddy = cy - lastTwoFingerCy;
+
+        const sensitivity = 2.5 / Math.min(window.innerWidth, window.innerHeight);
+        orbit.targetRotY -= ddx * sensitivity;
+        orbit.targetRotX -= ddy * sensitivity;
+        orbit.targetRotX = Math.max(-1.4, Math.min(1.4, orbit.targetRotX));
+      }
+      lastTwoFingerCx = cx;
+      lastTwoFingerCy = cy;
+    }
+  }
+}, { passive: true });
+
+container.addEventListener('touchend', () => {
+  touchDragging = false;
+  lastTwoFingerCx = null;
+  lastTwoFingerCy = null;
+});
+
+
+document.addEventListener('touchmove', (e) => {
+  if (e.touches.length >= 2) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+// ─── AMBIENT PARTICLES ───────────────────────────────────────────────────────
+const particleCount = 80;
+const particleGeo = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const particleSpeeds = [];
+
+for (let i = 0; i < particleCount; i++) {
+  positions[i * 3]     = (Math.random() - 0.5) * 40;
+  positions[i * 3 + 1] = (Math.random() - 0.5) * 25;
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+  particleSpeeds.push({ vx: (Math.random()-0.5)*0.003, vy: (Math.random()-0.5)*0.002, vz: (Math.random()-0.5)*0.003 });
+}
+
+particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+const particleMat = new THREE.PointsMaterial({ color: 0xC8A97A, size: 0.06, transparent: true, opacity: 0.25 });
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+
+
+const autoRotate = false;
+
+
+// ─── ANIMATE ─────────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Smooth orbit interpolation
+  orbit.rotX += (orbit.targetRotX - orbit.rotX) * 0.08;
+  orbit.rotY += (orbit.targetRotY - orbit.rotY) * 0.08;
+  orbit.distance += (orbit.targetDist - orbit.distance) * 0.08;
+
+
+
+  if (typeof mobileOrbitActive !== 'undefined' && mobileOrbitActive) {
+    const speed = 0.025;
+    if (mobileOrbitDir === 'left')  orbit.targetRotY -= speed;
+    if (mobileOrbitDir === 'right') orbit.targetRotY += speed;
+    if (mobileOrbitDir === 'up')    orbit.targetRotX = Math.min(1.4, orbit.targetRotX + speed);
+    if (mobileOrbitDir === 'down')  orbit.targetRotX = Math.max(-1.4, orbit.targetRotX - speed);
+  }
+  updateCamera();
+
+  // Particle drift
+  const pos = particles.geometry.attributes.position;
+  for (let i = 0; i < particleCount; i++) {
+    pos.array[i*3]   += particleSpeeds[i].vx;
+    pos.array[i*3+1] += particleSpeeds[i].vy;
+    pos.array[i*3+2] += particleSpeeds[i].vz;
+    // Boundary wrap
+    if (Math.abs(pos.array[i*3])   > 20) particleSpeeds[i].vx *= -1;
+    if (Math.abs(pos.array[i*3+1]) > 12) particleSpeeds[i].vy *= -1;
+    if (Math.abs(pos.array[i*3+2]) > 20) particleSpeeds[i].vz *= -1;
+  }
+  pos.needsUpdate = true;
+
+  // Pulsing glow on dark (start zone) cubes
+  boardCubes.forEach(cube => {
+    if (cube.userData.isDark) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 1.8 + cube.position.x + cube.position.z);
+      cube.material.emissive = new THREE.Color(0x3d2010);
+      cube.material.emissiveIntensity = pulse * 0.2;
+    }
+  });
+
+
+  if (selectedPieceGroup) {
+    const smoothFactor = isMobile() ? 0.06 : 0.12;
+    selectedPieceGroup.rotation.x += (previewRotation.x - selectedPieceGroup.rotation.x) * smoothFactor;
+    selectedPieceGroup.rotation.y += (previewRotation.y - selectedPieceGroup.rotation.y) * smoothFactor;
+    selectedPieceGroup.rotation.z += (previewRotation.z - selectedPieceGroup.rotation.z) * smoothFactor;
+    const previewX = isMobile() ? 2.8 : 5.5;
+    const previewY = isMobile() ? 5.5 : 3;
+    selectedPieceGroup.position.x = previewX;
+    selectedPieceGroup.position.y = previewY + Math.sin(t * 1.4) * 0.12;
+  }
+
+  // Son hamle vurgulama pulse
+  updateHighlightPulse(t);
+
+
+
+
+  renderer.render(scene, camera);
+}
+
+// ─── RESIZE ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = W() / H();
+  camera.updateProjectionMatrix();
+  renderer.setSize(W(), H());
+});
+
+// ─── PIECE PANEL ─────────────────────────────────────────────────────────────
+// SVG ikon sistemi — WebGL renderer yok, beyaz ekran yok
+const miniScenes = [];
+
+function getPieceSVG(piece, player) {
+  const cols = player === 1 ? P1_COLORS : P2_COLORS;
+  const idx = Math.min(piece.units - 2, cols.length - 1);
+  const baseColor = cols[idx];
+  const hex = '#' + baseColor.toString(16).padStart(6,'0');
+
+  const r = (baseColor >> 16) & 0xFF;
+  const g = (baseColor >>  8) & 0xFF;
+  const b =  baseColor        & 0xFF;
+  const dr = Math.max(10, Math.floor(r * 0.65));
+  const dg = Math.max(10, Math.floor(g * 0.65));
+  const db = Math.max(10, Math.floor(b * 0.65));
+  const dark = '#' + [dr,dg,db].map(v=>v.toString(16).padStart(2,'0')).join('');
+
+
+  const ISO = { sx: 7, sy: 4 }; // birim boyut
+  const cubes = piece.cubes;
+
+  // Bounds hesapla
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  cubes.forEach(([cx,cy,cz]) => {
+    const px = (cx - cz) * ISO.sx;
+    const py = -(cy * ISO.sy * 2) + (cx + cz) * ISO.sy;
+    if(px < minX) minX=px; if(px > maxX) maxX=px;
+    if(py < minY) minY=py; if(py > maxY) maxY=py;
+  });
+  const W = maxX - minX + ISO.sx*2 + 4;
+  const H = maxY - minY + ISO.sy*2 + 8;
+  const ox = -minX + ISO.sx + 2;
+  const oy = -minY + ISO.sy*2 + 2;
+
+
+  const sorted = [...cubes].sort(([ax,ay,az],[bx,by,bz]) => (ay - by) || (az + ax) - (bz + bx));
+
+  let paths = '';
+  sorted.forEach(([cx,cy,cz]) => {
+    const px = (cx - cz) * ISO.sx + ox;
+    const py = -(cy * ISO.sy * 2) + (cx + cz) * ISO.sy + oy;
+    const sx = ISO.sx, sy = ISO.sy;
+
+    paths += `<polygon points="${px},${py} ${px+sx},${py+sy} ${px},${py+sy*2} ${px-sx},${py+sy}" fill="${hex}" stroke="#00000033" stroke-width="0.5"/>`;
+
+    paths += `<polygon points="${px-sx},${py+sy} ${px},${py+sy*2} ${px},${py+sy*4} ${px-sx},${py+sy*3}" fill="${dark}" stroke="#00000033" stroke-width="0.5"/>`;
+
+    paths += `<polygon points="${px},${py+sy*2} ${px+sx},${py+sy} ${px+sx},${py+sy*3} ${px},${py+sy*4}" fill="${hex}cc" stroke="#00000033" stroke-width="0.5"/>`;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H+8}" width="40" height="40" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+}
+
+let panelBuilt = false;
+let panelPlayer = -1;
+let panelViewingPlayer = 1;
+
+function switchPanelTab(player) {
+  panelViewingPlayer = player;
+  // Tab aktif durumu
+  document.getElementById('tab-p1').classList.toggle('active', player===1);
+  document.getElementById('tab-p2').classList.toggle('active', player===2);
+  // Label
+  const label = document.getElementById('panel-player-label');
+  const isCurrent = player === GameState.currentPlayer;
+  label.textContent = isCurrent ? `Selection: ${t('player'+player)}` : `📋 ${t('player'+player)} — View`;
+  label.className = `panel-player-label p${player}`;
+
+  panelBuilt = false; // force rebuild
+  buildPiecePanel(player);
+}
+
+function buildPiecePanel(player) {
+  if (panelBuilt && panelPlayer === player) {
+    document.querySelectorAll('.piece-item').forEach(el => {
+      const idx = parseInt(el.dataset.index);
+      el.classList.toggle('used', GameState.usedPieces[player-1].includes(idx));
+    });
+    return;
+  }
+
+  const list = document.getElementById('piece-list');
+  list.innerHTML = '';
+  const isCurrent = player === GameState.currentPlayer;
+
+  PIECE_DEFS.forEach((piece, i) => {
+    const used = GameState.usedPieces[player-1].includes(i);
+    const item = document.createElement('div');
+    item.className = 'piece-item' + (used ? ' used' : '');
+    item.dataset.index = i;
+
+
+    if (!isCurrent) {
+      item.style.cursor = 'default';
+      item.style.opacity = used ? '0.25' : '0.75';
+    }
+
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'piece-preview';
+    previewDiv.innerHTML = getPieceSVG(piece, player);
+
+    const info = document.createElement('div');
+    info.className = 'piece-info';
+    const usedLabel = used ? ' <span style="color:var(--text-muted);font-size:9px;">used</span>' : '';
+    info.innerHTML = `<div class="piece-name">${piece.name}${usedLabel}</div><div class="piece-units">${piece.units} units</div>`;
+
+    const pts = document.createElement('div');
+    pts.className = 'piece-pts';
+    pts.style.color = player === 1 ? 'var(--p1)' : 'var(--p2)';
+    pts.textContent = piece.units;
+
+    item.appendChild(previewDiv);
+    item.appendChild(info);
+    item.appendChild(pts);
+
+
+    if (isCurrent) {
+      item.addEventListener('click', () => {
+        if (GameState.usedPieces[player-1].includes(i)) return;
+
+        if (gameMode !== 'offline' && !isMyTurn()) return;
+        selectPiece(i, player);
+        closePiecePanel();
+        GameState.phase = 'place';
+        document.getElementById('phase-btn').textContent = t('btn_cancel');
+        document.getElementById('game-phase').textContent = 'place';
+      });
+    }
+
+    list.appendChild(item);
+  });
+
+  panelBuilt = true;
+  panelPlayer = player;
+}
+
+let panelPinned = false;
+
+function togglePanelPin() {
+  panelPinned = !panelPinned;
+  const panel = document.getElementById('piece-panel');
+  const btn = document.getElementById('panel-pin-btn');
+  panel.classList.toggle('pinned', panelPinned);
+  btn.classList.toggle('active', panelPinned);
+
+  const phaseBtn = document.getElementById('phase-btn');
+  if (panelPinned) {
+    phaseBtn.textContent = t('btn_select');
+    GameState.phase = 'select';
+  } else {
+    phaseBtn.textContent = t('btn_select');
+    GameState.phase = 'inspect';
+  }
+}
+
+function openPiecePanel() {
+  panelOpenCount++;
+  const p = GameState.currentPlayer;
+  const myTurnNow = isMyTurn();
+
+  panelViewingPlayer = p;
+  document.getElementById('tab-p1').classList.toggle('active', p===1);
+  document.getElementById('tab-p2').classList.toggle('active', p===2);
+  const label = document.getElementById('panel-player-label');
+  label.textContent = `${t('panel_selection')} ${t('player'+p)}`;
+  label.className = `panel-player-label p${p}`;
+  panelBuilt = false;
+  buildPiecePanel(p);
+  document.getElementById('piece-panel').classList.add('open');
+
+
+
+  if (gameMode !== 'offline' && !myTurnNow) {
+
+    return;
+  }
+}
+
+function closePiecePanel() {
+  if (panelPinned) return; // pinli iken kapanmaz
+  document.getElementById('piece-panel').classList.remove('open');
+}
+
+
+let selectedPieceGroup = null;
+let previewRotation = { x:0, y:0, z:0 };
+
+function selectPiece(index, player) {
+
+  if (player !== GameState.currentPlayer) return;
+
+  if (gameMode !== 'offline' && (!isMyTurn() || player !== localPlayer)) return;
+
+  if (GameState.usedPieces[player-1].includes(index)) return;
+  document.querySelectorAll('.piece-item').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`.piece-item[data-index="${index}"]`)?.classList.add('selected');
+  GameState.selectedPieceIndex = index;
+
+  if (selectedPieceGroup) { scene.remove(selectedPieceGroup); selectedPieceGroup = null; }
+
+  const piece = PIECE_DEFS[index];
+  previewRotation = { x:0, y:0, z:0 };
+
+  const group = new THREE.Group();
+  const mat = getPieceMaterial(player, piece.units);
+  const geo = createRoundedBoxGeometry(UNIT - GAP*2, BEVEL);
+  const edgeG = new THREE.EdgesGeometry(new THREE.BoxGeometry(UNIT-GAP*2,UNIT-GAP*2,UNIT-GAP*2));
+  const edgeM = new THREE.LineBasicMaterial({ color:0x000000, transparent:true, opacity:0.25 });
+
+  piece.cubes.forEach(([cx,cy,cz]) => {
+    const mesh = new THREE.Mesh(geo, mat.clone());
+    mesh.material.transparent = true;
+    mesh.material.opacity = 0.85;
+    mesh.position.set(cx*UNIT, cy*UNIT, cz*UNIT);
+    group.add(mesh);
+    const el = new THREE.LineSegments(edgeG, edgeM.clone());
+    el.position.set(cx*UNIT, cy*UNIT, cz*UNIT);
+    group.add(el);
+  });
+
+  const box3 = new THREE.Box3().setFromObject(group);
+  const center = new THREE.Vector3();
+  box3.getCenter(center);
+  group.position.sub(center);
+
+  const previewX = isMobile() ? 2.8 : 5.5;
+  const previewY = isMobile() ? 5.5 : 3;
+  group.position.set(previewX, previewY, 0);
+  group.userData.isPreview = true;
+
+  scene.add(group);
+  selectedPieceGroup = group;
+
+  document.getElementById('preview-label').classList.add('visible');
+  document.getElementById('rotation-hint').classList.add('visible');
+}
+
+function deselectPiece() {
+  GameState.selectedPieceIndex = -1;
+  if (selectedPieceGroup) { scene.remove(selectedPieceGroup); selectedPieceGroup = null; }
+  document.querySelectorAll('.piece-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('preview-label').classList.remove('visible');
+  document.getElementById('rotation-hint').classList.remove('visible');
+}
+
+
+const ROT_STEP = Math.PI / 2;
+
+document.addEventListener('keydown', (e) => {
+  if (!selectedPieceGroup) return;
+  const k = e.key.toLowerCase();
+  if (k==='q') previewRotation.x -= ROT_STEP;
+  if (k==='e') previewRotation.x += ROT_STEP;
+  if (k==='w') previewRotation.y += ROT_STEP;
+  if (k==='s') previewRotation.y -= ROT_STEP;
+  if (k==='a') previewRotation.z -= ROT_STEP;
+  if (k==='d') previewRotation.z += ROT_STEP;
+  if (k==='escape') {
+    deselectPiece(); removeGhost();
+    GameState.phase = 'inspect';
+    document.getElementById('phase-btn').textContent = t('btn_select');
+    document.getElementById('game-phase').textContent = t('phase_inspect');
+  }
+});
+
+
+
+
+const placedCubes = [];
+const placedMeshes = [];
+const BOARD = { minX:0, maxX:1, minY:0, maxY:7, minZ:0, maxZ:1 };
+
+function isBoardOccupied(gx,gy,gz) {
+  return gx>=BOARD.minX&&gx<=BOARD.maxX&&gy>=BOARD.minY&&gy<=BOARD.maxY&&gz>=BOARD.minZ&&gz<=BOARD.maxZ;
+}
+function isPlacedOccupied(gx,gy,gz) {
+  return placedCubes.some(c=>c.gx===gx&&c.gy===gy&&c.gz===gz);
+}
+function getRotatedCubes(pieceDef,rotation) {
+  const mat=new THREE.Matrix4();
+  const euler=new THREE.Euler(
+    Math.round(rotation.x/(Math.PI/2))*(Math.PI/2),
+    Math.round(rotation.y/(Math.PI/2))*(Math.PI/2),
+    Math.round(rotation.z/(Math.PI/2))*(Math.PI/2)
+  );
+  mat.makeRotationFromEuler(euler);
+  return pieceDef.cubes.map(([cx,cy,cz])=>{
+    const v=new THREE.Vector3(cx,cy,cz).applyMatrix4(mat);
+    return {x:Math.round(v.x),y:Math.round(v.y),z:Math.round(v.z)};
+  });
+}
+const DIRS6=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+
+function isDarkZone(gy) { return gy===0||gy===7; }
+
+
+
+function touchesStartZone(cubes,offset){
+  for(const c of cubes){
+    const wx=c.x+offset.x, wy=c.y+offset.y, wz=c.z+offset.z;
+    for(const[dx,dy,dz]of DIRS6){
+      const nx=wx+dx, ny=wy+dy, nz=wz+dz;
+
+      if(isBoardOccupied(nx,ny,nz)){
+
+        if(ny===0||ny===7) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function touchesBoard(cubes,offset){
+  for(const c of cubes)for(const[dx,dy,dz]of DIRS6){
+    if(isBoardOccupied(c.x+offset.x+dx,c.y+offset.y+dy,c.z+offset.z+dz))return true;
+  }return false;
+}
+function touchesLastOpponent(cubes,offset){
+  if(GameState.lastPlacedCubes.length===0)return true;
+  for(const c of cubes)for(const[dx,dy,dz]of DIRS6){
+    const nx=c.x+offset.x+dx,ny=c.y+offset.y+dy,nz=c.z+offset.z+dz;
+    if(GameState.lastPlacedCubes.some(lc=>lc.gx===nx&&lc.gy===ny&&lc.gz===nz))return true;
+  }return false;
+}
+function hasCollision(cubes,offset){
+  for(const c of cubes){
+    const wx=c.x+offset.x,wy=c.y+offset.y,wz=c.z+offset.z;
+    if(isBoardOccupied(wx,wy,wz)||isPlacedOccupied(wx,wy,wz))return true;
+  }return false;
+}
+function withinReach(cubes, offset) {
+  for (const c of cubes) {
+    const wx = c.x + offset.x;
+    const wy = c.y + offset.y;
+    const wz = c.z + offset.z;
+    if (wx < BOARD.minX - 1 || wx > BOARD.maxX + 1) return false;
+    if (wy < BOARD.minY - 1 || wy > BOARD.maxY + 1) return false;
+    if (wz < BOARD.minZ - 1 || wz > BOARD.maxZ + 1) return false;
+  }
+  return true;
+}
+
+function isValidPlacement(cubes, offset) {
+  if (hasCollision(cubes, offset)) return false;
+  if (!withinReach(cubes, offset)) return false;
+  if (!touchesBoard(cubes, offset)) return false;
+  const isFirstMove = placedCubes.length === 0;
+  if (isFirstMove) {
+    if (!touchesStartZone(cubes, offset)) return false;
+  } else {
+    if (!touchesLastOpponent(cubes, offset)) return false;
+  }
+  return true;
+}
+
+function gridToWorld(gx, gy, gz) {
+  return new THREE.Vector3((gx - 0.5) * UNIT, (gy - 3.5) * UNIT, (gz - 0.5) * UNIT);
+}
+
+
+// Her hamle: P{id}·R{rotIdx}·({gx},{gy},{gz})·{face}
+
+
+const FACE_FROM_NORMAL = (fn) => {
+  if (fn.x === -1) return 'L';
+  if (fn.x ===  1) return 'R';
+  if (fn.z === -1) return 'F';
+  if (fn.z ===  1) return 'B';
+  if (fn.y ===  1) return 'T';
+  if (fn.y === -1) return 'D';
+  return '?';
+};
+
+
+function getRotationIndex(rot) {
+  const steps = Math.round;
+  const rx = ((steps(rot.x / (Math.PI/2)) % 4) + 4) % 4;
+  const ry = ((steps(rot.y / (Math.PI/2)) % 4) + 4) % 4;
+  const rz = ((steps(rot.z / (Math.PI/2)) % 4) + 4) % 4;
+  return rx * 16 + ry * 4 + rz;
+}
+
+
+function buildMoveNotation(pieceIndex, rotated, offset, faceNormal) {
+  const rotIdx = getRotationIndex(previewRotation);
+  const face   = faceNormal ? FACE_FROM_NORMAL(faceNormal) : '?';
+
+  const gx = rotated[0].x + offset.x;
+  const gy = rotated[0].y + offset.y;
+  const gz = rotated[0].z + offset.z;
+  return `P${pieceIndex}·R${rotIdx}·(${gx},${gy},${gz})·${face}`;
+}
+
+
+let gameNotation = [];   // ["P3·R0·(0,0,0)·F", "P7·R2·(1,0,0)·R", ...]
+let lastFaceNormal = null;
+
+
+let gameStartTime       = Date.now();
+let invalidAttempts     = 0;
+let panelOpenCount      = 0;
+let replayCount         = 0;
+
+
+let ghostGroup = null, currentSnapOffset = null, snapValid = false;
+const GHOST_VALID = new THREE.MeshStandardMaterial({
+  color: 0x88ff44, transparent: true, opacity: 0.45, roughness: 0.5, depthWrite: false
+});
+const GHOST_INVALID = new THREE.MeshStandardMaterial({
+  color: 0xff3322, transparent: true, opacity: 0.35, roughness: 0.5, depthWrite: false
+});
+
+function showGhost(rotatedCubes, offset, valid) {
+  removeGhost();
+  ghostGroup = new THREE.Group();
+  const mat = valid ? GHOST_VALID : GHOST_INVALID;
+  const geo = createRoundedBoxGeometry(UNIT - GAP * 2, BEVEL);
+  rotatedCubes.forEach(c => {
+    const mesh = new THREE.Mesh(geo, mat.clone());
+    mesh.position.copy(gridToWorld(c.x + offset.x, c.y + offset.y, c.z + offset.z));
+    ghostGroup.add(mesh);
+  });
+  scene.add(ghostGroup);
+  snapValid = valid;
+  currentSnapOffset = { ...offset };
+
+  if (!valid) invalidAttempts++;
+}
+
+function removeGhost() {
+  if (ghostGroup) { scene.remove(ghostGroup); ghostGroup = null; }
+  snapValid = false;
+  currentSnapOffset = null;
+}
+
+
+function getPieceCenter(cubes, offset) {
+  let sx = 0, sy = 0, sz = 0;
+  for (const c of cubes) { sx += c.x + offset.x; sy += c.y + offset.y; sz += c.z + offset.z; }
+  return new THREE.Vector3(sx / cubes.length, sy / cubes.length, sz / cubes.length);
+}
+
+
+function raycastToPlane(mouseX, mouseY, planeNormal, planePoint) {
+  const ray = new THREE.Ray();
+  const ndcMouse = new THREE.Vector3(mouseX, mouseY, 0.5);
+  ndcMouse.unproject(camera);
+  ray.origin.copy(camera.position);
+  ray.direction.copy(ndcMouse.sub(camera.position).normalize());
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, planePoint);
+  const target = new THREE.Vector3();
+  ray.intersectPlane(plane, target);
+  return target;
+}
+
+
+function worldToSnapOffset(worldPos, rotatedCubes) {
+
+
+  let cx = 0, cy = 0, cz = 0;
+  for (const c of rotatedCubes) { cx += c.x; cy += c.y; cz += c.z; }
+  cx /= rotatedCubes.length; cy /= rotatedCubes.length; cz /= rotatedCubes.length;
+
+
+  const gx = Math.round(worldPos.x / UNIT + 0.5);
+  const gy = Math.round(worldPos.y / UNIT + 3.5);
+  const gz = Math.round(worldPos.z / UNIT + 0.5);
+
+
+  const baseOffset = {
+    x: Math.round(gx - cx),
+    y: Math.round(gy - cy),
+    z: Math.round(gz - cz),
+  };
+
+  return baseOffset;
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+
+let activePlaneNormal = null;
+let activePlanePoint = null;
+
+container.addEventListener('mousemove', (e) => {
+  if (GameState.selectedPieceIndex < 0 || GameState.phase !== 'place') return;
+
+  const mx = (e.clientX / W()) * 2 - 1;
+  const my = -(e.clientY / H()) * 2 + 1;
+  mouse.x = mx; mouse.y = my;
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects([...boardCubes, ...placedMeshes], false);
+
+  const piece = PIECE_DEFS[GameState.selectedPieceIndex];
+  const rotated = getRotatedCubes(piece, previewRotation);
+
+  if (hits.length > 0) {
+    const hit = hits[0];
+    const fn = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+    fn.x = Math.round(fn.x); fn.y = Math.round(fn.y); fn.z = Math.round(fn.z);
+    lastFaceNormal = fn.clone();
+
+    const ud = hit.object.userData;
+    if (ud.gx === undefined) { removeGhost(); return; }
+
+
+    const hitWorldPos = gridToWorld(ud.gx, ud.gy, ud.gz);
+    const planePoint = hitWorldPos.clone().add(
+      new THREE.Vector3(fn.x * UNIT, fn.y * UNIT, fn.z * UNIT)
+    );
+    activePlaneNormal = fn.clone();
+    activePlanePoint = planePoint.clone();
+  }
+
+  if (!activePlaneNormal || !activePlanePoint) { removeGhost(); return; }
+
+
+  const worldPos = raycastToPlane(mx, my, activePlaneNormal, activePlanePoint);
+  if (!worldPos || worldPos.length() > 100) { removeGhost(); return; }
+
+  // Grid offset hesapla
+  const baseOffset = worldToSnapOffset(worldPos, rotated);
+
+
+
+  const adjustments = [
+    {x:0,y:0,z:0},
+    {x:1,y:0,z:0},{x:-1,y:0,z:0},
+    {x:0,y:1,z:0},{x:0,y:-1,z:0},
+    {x:0,y:0,z:1},{x:0,y:0,z:-1},
+  ];
+
+  let bestValid = null;
+  let bestInvalid = null;
+  let bestInvalidDist = Infinity;
+
+  for (const adj of adjustments) {
+    const offset = {
+      x: baseOffset.x + adj.x,
+      y: baseOffset.y + adj.y,
+      z: baseOffset.z + adj.z,
+    };
+    if (isValidPlacement(rotated, offset)) {
+      if (!bestValid) bestValid = offset;
+      break;
+    } else if (!hasCollision(rotated, offset)) {
+
+      const dist = Math.abs(adj.x) + Math.abs(adj.y) + Math.abs(adj.z);
+      if (dist < bestInvalidDist) {
+        bestInvalidDist = dist;
+        bestInvalid = offset;
+      }
+    }
+  }
+
+  if (bestValid) {
+    showGhost(rotated, bestValid, true);
+  } else if (bestInvalid) {
+    showGhost(rotated, bestInvalid, false);
+  } else {
+    removeGhost();
+  }
+});
+
+container.addEventListener('click',(e)=>{
+  if(GameState.selectedPieceIndex<0||GameState.phase!=='place')return;
+  if(!snapValid||!currentSnapOffset)return;
+
+  if(gameMode !== 'offline' && !isMyTurn()) return;
+
+  if (isMobile()) return;
+
+  const piece=PIECE_DEFS[GameState.selectedPieceIndex];
+  pendingRotated=getRotatedCubes(piece,previewRotation);
+  GameState.phase='confirm';
+  document.getElementById('confirm-dialog').classList.add('visible');
+  document.getElementById('phase-btn').textContent='...';
+});
+
+let pendingRotated=null;
+function confirmPlacement(){
+  document.getElementById('confirm-dialog').classList.remove('visible');
+  if(!pendingRotated||!currentSnapOffset)return;
+
+  if(gameMode !== 'offline' && !isMyTurn()) return;
+  const snap={...currentSnapOffset};
+  const rot=[...pendingRotated];
+  placePiece(rot,snap,GameState.currentPlayer,GameState.selectedPieceIndex);
+}
+function cancelPlacement(){
+  document.getElementById('confirm-dialog').classList.remove('visible');
+  GameState.phase='place';
+  document.getElementById('phase-btn').textContent=t('btn_cancel');
+}
+
+function placePiece(rotated,offset,player,pieceIndex){
+  const piece=PIECE_DEFS[pieceIndex];
+  removeGhost();
+  const targets=rotated.map(c=>({gx:c.x+offset.x,gy:c.y+offset.y,gz:c.z+offset.z}));
+  const group=new THREE.Group();
+  const mat=getPieceMaterial(player,piece.units);
+  const geo=createRoundedBoxGeometry(UNIT-GAP*2,BEVEL);
+  const edgeG=new THREE.EdgesGeometry(new THREE.BoxGeometry(UNIT-GAP*2,UNIT-GAP*2,UNIT-GAP*2));
+  const edgeM=new THREE.LineBasicMaterial({color:0x000000,transparent:true,opacity:0.28});
+  const animMeshes=[];
+  targets.forEach(t=>{
+    const tp=gridToWorld(t.gx,t.gy,t.gz);
+    const mesh=new THREE.Mesh(geo,mat.clone());
+    const sp=selectedPieceGroup?selectedPieceGroup.position.clone():tp.clone().add(new THREE.Vector3(0,5,0));
+    mesh.position.copy(sp);
+    mesh.userData={type:'placed',gx:t.gx,gy:t.gy,gz:t.gz,player};
+    group.add(mesh);
+    const el=new THREE.LineSegments(edgeG,edgeM.clone());
+    el.position.copy(sp);
+    group.add(el);
+    animMeshes.push({mesh,el,tp});
+  });
+  scene.add(group);
+  if(selectedPieceGroup){scene.remove(selectedPieceGroup);selectedPieceGroup=null;}
+  const t0=performance.now(),DUR=400;
+  function step(){
+    const p=Math.min((performance.now()-t0)/DUR,1);
+    const ease=1-Math.pow(1-p,4);
+    animMeshes.forEach(({mesh,el,tp})=>{mesh.position.lerp(tp,ease);el.position.copy(mesh.position);});
+    if(p<1)requestAnimationFrame(step);
+    else finalizePlacement(targets,animMeshes,player,pieceIndex);
+  }
+  requestAnimationFrame(step);
+}
+
+function finalizePlacement(targets,animMeshes,player,pieceIndex){
+  targets.forEach(t=>placedCubes.push({gx:t.gx,gy:t.gy,gz:t.gz,player}));
+  animMeshes.forEach(({mesh})=>placedMeshes.push(mesh));
+  GameState.lastPlacedCubes=targets.map(t=>({gx:t.gx,gy:t.gy,gz:t.gz}));
+  GameState.usedPieces[player-1].push(pieceIndex);
+  const pts=calculateScore(targets,player,pieceIndex);
+  GameState.scores[player-1]+=pts;
+  document.getElementById('val-p1').textContent=GameState.scores[0];
+  document.getElementById('val-p2').textContent=GameState.scores[1];
+  const rem=10-GameState.usedPieces[player-1].length;
+  document.getElementById(`pieces-p${player}`).textContent=t('pieces', rem);
+  GameState.currentPlayer=player===1?2:1;
+  GameState.selectedPieceIndex=-1;GameState.phase='inspect';GameState.round++;
+  // Notasyon: bu hamleyi kaydet
+  const piece = PIECE_DEFS[pieceIndex];
+  const notation = buildMoveNotation(pieceIndex, targets.map(t=>({x:t.gx,y:t.gy,z:t.gz})), {x:0,y:0,z:0}, lastFaceNormal);
+  gameNotation.push(notation);
+
+  try { mixpanel.track('piece_placed', {
+    player,
+    piece_name: piece.name,
+    piece_units: piece.units,
+    move_number: GameState.round - 1,
+    notation,
+    platform: isMobile() ? 'mobile' : 'desktop',
+  }); } catch(e){}
+  document.getElementById('turn-round').textContent=GameState.round;
+  const np=GameState.currentPlayer;
+  const npName = np === 1 ? p1Name : p2Name;
+  const n=document.getElementById('turn-name');
+  n.textContent = npName;
+  n.className=`turn-name p${np}`;
+  document.getElementById('score-p1').classList.toggle('active',np===1);
+  document.getElementById('score-p2').classList.toggle('active',np===2);
+  document.getElementById('preview-label').classList.remove('visible');
+  document.getElementById('rotation-hint').classList.remove('visible');
+  document.getElementById('phase-btn').textContent = t('btn_select');
+  document.getElementById('game-phase').textContent = t('phase_inspect');
+  checkWinCondition();
+  if (lastMoveHighlightEnabled) drawLastMoveHighlight();
+  if (panelPinned) {
+    panelViewingPlayer = np;
+    document.getElementById('tab-p1').classList.toggle('active', np===1);
+    document.getElementById('tab-p2').classList.toggle('active', np===2);
+    const label = document.getElementById('panel-player-label');
+    label.textContent = `${t('panel_selection')} ${t('player'+np)}`;
+    label.className = `panel-player-label p${np}`;
+    buildPiecePanel(np);
+  }
+}
+
+function calculateScore(targets, player, pieceIndex) {
+  const opp = player === 1 ? 2 : 1;
+  const basePoints = targets.length;
+  let totalContact = 0;
+  let maxContactSingle = 0;
+
+  for (const t of targets) {
+    let contactHere = 0;
+    for (const [dx, dy, dz] of DIRS6) {
+      const nx = t.gx + dx, ny = t.gy + dy, nz = t.gz + dz;
+      if (placedCubes.some(c => c.gx === nx && c.gy === ny && c.gz === nz && c.player === opp)) {
+        totalContact++;
+        contactHere++;
+      }
+    }
+    if (contactHere > maxContactSingle) maxContactSingle = contactHere;
+  }
+
+  let contactBonus = 0;
+  if (maxContactSingle >= 2) {
+    contactBonus = 5;
+    showBonusToast('Placement Bonus +5 ⚡');
+  }
+
+  const tempAdded = targets.map(t => ({ gx: t.gx, gy: t.gy, gz: t.gz, player }));
+  const tempAll = [...placedCubes, ...tempAdded];
+  const contBonus = checkContinuityWith(tempAll, player);
+
+  const total = basePoints + totalContact + contactBonus + contBonus;
+
+
+  showMoveScore(targets, player, basePoints, totalContact, contactBonus, contBonus);
+
+  return total;
+}
+
+function showMoveScore(targets, player, basePoints, contactCount, contactBonus, contBonus) {
+  const chip = document.getElementById('last-score-chip');
+  const ptsEl = document.getElementById('last-score-pts');
+  const descEl = document.getElementById('last-score-desc');
+  if (!chip || !ptsEl || !descEl) return;
+
+  const total = basePoints + contactCount + contactBonus + contBonus;
+  const playerColor = player === 1 ? 'var(--p1)' : 'var(--p2)';
+
+  ptsEl.textContent = `+${total}`;
+  ptsEl.style.color = playerColor;
+
+
+  const isT = false;
+  let lines = [];
+  lines.push(`${basePoints}-unit piece placed`);
+
+  if (contactCount > 0) {
+    lines.push(`Touched ${contactCount} opponent unit${contactCount>1?'s':''} · +${contactCount}`);
+  }
+  if (contactBonus > 0) {
+    lines.push(`Placement Bonus · +${contactBonus}`);
+  }
+  if (contBonus > 0) {
+    lines.push(`Continuity Bonus · +${contBonus}`);
+  }
+
+
+  const parts = [basePoints];
+  if (contactCount) parts.push(contactCount);
+  if (contactBonus) parts.push(contactBonus);
+  if (contBonus) parts.push(contBonus);
+  const formula = parts.join(' + ') + ` = ${total}`;
+  lines.push(`<span style="color:${playerColor};font-weight:800;">${formula}</span>`);
+
+  descEl.innerHTML = lines.join('<br>');
+  chip.style.display = 'block';
+}
+
+// Yatay halka: board çevresini saat yönünde sıralı 12 pozisyon (gy sabit)
+const CONTINUITY_H_LOOP = [
+  [-1,-1], [-1, 0], [-1, 1], [-1, 2],
+  [ 0, 2], [ 1, 2],
+  [ 2, 2], [ 2, 1], [ 2, 0], [ 2,-1],
+  [ 1,-1], [ 0,-1],
+];
+
+// Dikey dis sutunlar: yuzey uzerindeki tum (gx,gz) ciftleri
+const CONTINUITY_V_COLS = [
+  [-1,-1],[-1, 0],[-1, 1],[-1, 2],
+  [ 2,-1],[ 2, 0],[ 2, 1],[ 2, 2],
+  [ 0,-1],[ 1,-1],
+  [ 0, 2],[ 1, 2],
+];
+
+function checkContinuityWith(allCubes, player) {
+  const pc = allCubes.filter(c => c.player === player);
+  const key = player === 1 ? 'p1' : 'p2';
+  const thresholds = GameState.continuityThresholds[key];
+
+  // Yuzey uzerindeki kupler set
+  const pcSet = new Set(pc.map(c => `${c.gx},${c.gy},${c.gz}`));
+
+  let maxLen = 0;
+
+  // 1. Yatay zincirler: her gy katmaninda halka uzerinde ardisik segment
+  const N = CONTINUITY_H_LOOP.length; // 12
+  for (let gy = 0; gy < 8; gy++) {
+    const present = CONTINUITY_H_LOOP.map(([gx, gz]) =>
+      pcSet.has(`${gx},${gy},${gz}`) ? 1 : 0
+    );
+    let cur = 0;
+    for (let i = 0; i < 2 * N; i++) {
+      if (present[i % N]) {
+        cur++;
+        if (cur > N) cur = N;
+        if (cur > maxLen) maxLen = cur;
+      } else {
+        cur = 0;
+      }
+    }
+  }
+
+  // 2. Dikey zincirler: her dis sutunda gy 0..7 ardisik segment
+  for (const [gx, gz] of CONTINUITY_V_COLS) {
+    let cur = 0;
+    for (let gy = 0; gy < 8; gy++) {
+      if (pcSet.has(`${gx},${gy},${gz}`)) {
+        cur++;
+        if (cur > maxLen) maxLen = cur;
+      } else {
+        cur = 0;
+      }
+    }
+  }
+
+  // Esik kontrolu - sadece ilk kez gecildiginde bonus ver
+  let bonus = 0;
+
+  if (maxLen >= 16 && !thresholds.t16) {
+    thresholds.t16 = true;
+    thresholds.t8 = true;
+    bonus = 20;
+    showBonusToast('Continuity Bonus +20 🎉');
+  } else if (maxLen >= 8 && !thresholds.t8) {
+    thresholds.t8 = true;
+    bonus = 10;
+    showBonusToast('Continuity Bonus +10 ⭐');
+  }
+
+  return bonus;
+}
+
+function checkWinCondition() {
+
+  for (let p = 1; p <= 2; p++) {
+    if (checkLockWin(p)) { showWinScreen(p, 'kilit'); return; }
+  }
+
+  if (GameState.usedPieces[0].length === 10 && GameState.usedPieces[1].length === 10) {
+    const winner = GameState.scores[0] > GameState.scores[1] ? 1 :
+                   GameState.scores[1] > GameState.scores[0] ? 2 : 0;
+    showWinScreen(winner, 'skor');
+    return;
+  }
+
+
+  checkNoMovesLeft();
+}
+
+function canPlayerMove(player) {
+  const remaining = PIECE_DEFS.filter((_, i) => !GameState.usedPieces[player-1].includes(i));
+  if (remaining.length === 0) return false;
+
+
+  const rotations = [
+    {x:0,y:0,z:0}, {x:Math.PI/2,y:0,z:0}, {x:Math.PI,y:0,z:0}, {x:-Math.PI/2,y:0,z:0},
+    {x:0,y:Math.PI/2,z:0}, {x:0,y:Math.PI,z:0}, {x:0,y:-Math.PI/2,z:0},
+    {x:0,y:0,z:Math.PI/2}, {x:0,y:0,z:Math.PI}, {x:0,y:0,z:-Math.PI/2},
+    {x:Math.PI/2,y:Math.PI/2,z:0}, {x:Math.PI/2,y:-Math.PI/2,z:0},
+  ];
+
+
+  const candidates = [];
+  for (let x = -1; x <= 2; x++)
+    for (let y = -1; y <= 8; y++)
+      for (let z = -1; z <= 2; z++)
+        if (!isBoardOccupied(x,y,z) && !isPlacedOccupied(x,y,z))
+          candidates.push({x,y,z});
+
+  for (const piece of remaining) {
+    for (const rot of rotations) {
+      const rotated = getRotatedCubes(piece, rot);
+      for (const pos of candidates) {
+
+        for (const refCube of rotated) {
+          const offset = { x: pos.x - refCube.x, y: pos.y - refCube.y, z: pos.z - refCube.z };
+          if (isValidPlacement(rotated, offset)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function checkNoMovesLeft() {
+  const current = GameState.currentPlayer;
+  if (!canPlayerMove(current)) {
+    endGameNow();
+  }
+}
+
+function endGameNow() {
+  const bar = document.getElementById('no-moves-bar');
+  if (bar) bar.remove();
+  const btn = document.getElementById('inspect-end-btn');
+  if (btn) btn.style.display = 'none';
+  GameState.inspectMode = false;
+
+  const s = GameState.scores;
+  const winner = s[0] > s[1] ? 1 : s[1] > s[0] ? 2 : 0;
+
+
+  if (gameMode !== 'offline' && roomRef) {
+    roomRef.child('gameOver').set({
+      winner,
+      type: 'kaktus',
+      scores: [s[0], s[1]],
+      usedPieces: [GameState.usedPieces[0], GameState.usedPieces[1]],
+      ts: Date.now(),
+    });
+  }
+
+  showWinScreen(winner, 'kaktus');
+}
+
+function replayGame() {
+  replayCount++;
+  try { mixpanel.track('game_replay', { replay_number: replayCount, platform: isMobile()?'mobile':'desktop' }); } catch(e){}
+  setTimeout(() => location.reload(), 100);
+}
+
+function enterInspectMode() {
+  const bar = document.getElementById('no-moves-bar');
+  if (bar) bar.remove();
+  GameState.inspectMode = true;
+  const btn = document.getElementById('inspect-end-btn');
+  if (btn) btn.style.display = 'block';
+  updateInspectBtn();
+}
+
+function updateInspectBtn() {
+  const label = document.getElementById('inspect-end-label');
+  if (label) label.textContent = 'New Game';
+}
+
+function enterInspectFromWin() {
+  const ws = document.getElementById('win-screen');
+  ws.classList.remove('visible');
+  _fillInspectCard();
+  const btn = document.getElementById('inspect-end-btn');
+  if (btn) btn.style.display = 'block';
+  GameState.inspectMode = true;
+  try { mixpanel.track('inspect_entered', { total_moves: GameState.round, platform: isMobile()?'mobile':'desktop' }); } catch(e){}
+}
+
+
+function _fillInspectCard() {
+  const s = GameState.scores;
+  const winner = s[0] > s[1] ? 1 : s[1] > s[0] ? 2 : 0;
+
+
+  const winTypeEl = document.getElementById('win-type');
+  const winPlayerEl = document.getElementById('win-player');
+
+  const inspectType = document.getElementById('inspect-win-type');
+  const inspectPlayer = document.getElementById('inspect-win-player');
+  if (inspectType && winTypeEl) inspectType.textContent = winTypeEl.textContent;
+  if (inspectPlayer && winPlayerEl) {
+    inspectPlayer.textContent = winPlayerEl.textContent;
+    inspectPlayer.style.color = winner === 1 ? 'var(--p1)' : winner === 2 ? 'var(--p2)' : 'var(--accent)';
+  }
+
+  const sp1 = document.getElementById('inspect-score-p1');
+  const sp2 = document.getElementById('inspect-score-p2');
+  if (sp1) sp1.textContent = s[0];
+  if (sp2) sp2.textContent = s[1];
+}
+
+
+
+
+function checkLockWin(player) {
+  const pc = placedCubes.filter(c => c.player === player);
+  if (pc.length < 12) return false;
+
+  // Yatay lock win: aynı y katmanında 12-küp kapalı halka
+  for (let y = 0; y <= 7; y++) {
+    if (checkHorizontalLockAtLayer(pc, y)) return true;
+  }
+
+  return false;
+}
+
+// Yatay (horizontal) lock win — tek y katmanı
+// 12 gerekli pozisyon:
+//   Kenarlar (8): (-1,0),(-1,1),(2,0),(2,1),(0,-1),(1,-1),(0,2),(1,2)
+//   Köşeler  (4): (-1,-1),(2,-1),(-1,2),(2,2)
+// Hepsi oyuncuya ait VE flood-fill ile tek bağlı bileşen olmalı.
+function checkHorizontalLockAtLayer(pc, y) {
+  const RING = [
+    {gx:-1, gz: 0}, {gx:-1, gz: 1},
+    {gx: 2, gz: 0}, {gx: 2, gz: 1},
+    {gx: 0, gz:-1}, {gx: 1, gz:-1},
+    {gx: 0, gz: 2}, {gx: 1, gz: 2},
+    {gx:-1, gz:-1}, {gx: 2, gz:-1},
+    {gx:-1, gz: 2}, {gx: 2, gz: 2},
+  ];
+
+  // 1. Tüm 12 pozisyon bu y'de oyuncuya ait mi?
+  const layer = pc.filter(c => c.gy === y);
+  const hasAll = RING.every(r => layer.some(c => c.gx === r.gx && c.gz === r.gz));
+  if (!hasAll) return false;
+
+  // 2. Flood-fill: 12 küp birbiriyle bağlantılı tek parça mı?
+  const set = new Set(RING.map(r => `${r.gx},${r.gz}`));
+  const visited = new Set();
+  const queue = [`${RING[0].gx},${RING[0].gz}`];
+  while (queue.length) {
+    const k = queue.shift();
+    if (visited.has(k)) continue;
+    visited.add(k);
+    const [gx, gz] = k.split(',').map(Number);
+    for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nk = `${gx+dx},${gz+dz}`;
+      if (set.has(nk) && !visited.has(nk)) queue.push(nk);
+    }
+  }
+
+  return visited.size === RING.length;
+}
+
+// ─── SON HAMLE VURGULAMA ─────────────────────────────────────────────────────
+let lastMoveHighlightMeshes = [];
+let lastMoveHighlightEnabled = false;
+
+function toggleLastMoveHighlight(enabled) {
+  lastMoveHighlightEnabled = enabled;
+  if (enabled) {
+    drawLastMoveHighlight();
+  } else {
+    clearLastMoveHighlight();
+  }
+}
+
+function clearLastMoveHighlight() {
+  lastMoveHighlightMeshes.forEach(m => scene.remove(m));
+  lastMoveHighlightMeshes = [];
+}
+
+function drawLastMoveHighlight() {
+  clearLastMoveHighlight();
+  if (!lastMoveHighlightEnabled) return;
+  if (GameState.lastPlacedCubes.length === 0) return;
+
+
+  const prevPlayer = GameState.currentPlayer === 1 ? 2 : 1;
+  // P1: beyaz (#ffffff) — yeşil taştan ayırt edilir | P2: altın (#ffd080) — turuncudan ayırt edilir
+  const hlColor = prevPlayer === 1 ? 0xffffff : 0xffd080;
+
+  const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(UNIT+0.02, UNIT+0.02, UNIT+0.02));
+  const hlMat = new THREE.LineBasicMaterial({
+    color: hlColor,
+    transparent: true,
+    opacity: 1.0,
+    linewidth: 2,
+  });
+
+  GameState.lastPlacedCubes.forEach(c => {
+    const lines = new THREE.LineSegments(edgeGeo, hlMat.clone());
+    lines.position.copy(gridToWorld(c.gx, c.gy, c.gz));
+    lines.userData.isHighlight = true;
+    scene.add(lines);
+    lastMoveHighlightMeshes.push(lines);
+  });
+}
+
+
+function updateHighlightPulse(t) {
+  if (!lastMoveHighlightEnabled || lastMoveHighlightMeshes.length === 0) return;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+  lastMoveHighlightMeshes.forEach(m => {
+    if (m.material) m.material.opacity = 0.4 + pulse * 0.55;
+  });
+}
+
+function showBonusToast(msg){
+  const t=document.getElementById('bonus-toast');
+  t.textContent=msg;t.classList.add('visible');
+  clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('visible'),2400);
+}
+
+
+function calculatePenalties() {
+  const penalties = [0, 0];
+  for (let p = 0; p < 2; p++) {
+    const remaining = PIECE_DEFS.filter((_, i) => !GameState.usedPieces[p].includes(i));
+    penalties[p] = remaining.reduce((sum, piece) => sum + piece.units, 0);
+  }
+  return penalties;
+}
+
+function showWinScreen(player, type) {
+  // Ceza hesapla
+  const penalties = calculatePenalties();
+  const rawScores = [...GameState.scores];
+  const finalScores = [
+    Math.max(0, rawScores[0] - penalties[0]),
+    Math.max(0, rawScores[1] - penalties[1]),
+  ];
+
+
+  GameState.scores = finalScores;
+  document.getElementById('val-p1').textContent = finalScores[0];
+  document.getElementById('val-p2').textContent = finalScores[1];
+
+  const types = {
+    kilit: '🔒 Lock Win!',
+    skor:  '🏆 Score Win!',
+    kaktus:'🌵 Cactus Win!',
+  };
+  document.getElementById('win-type').textContent = types[type] || '';
+
+  const wp = document.getElementById('win-player');
+
+  const winner = finalScores[0] > finalScores[1] ? 1 :
+                 finalScores[1] > finalScores[0] ? 2 : 0;
+  if (winner === 0) {
+    wp.textContent = 'Draw!';
+    wp.style.color = 'var(--accent)';
+  } else {
+    wp.textContent = `Player ${winner} Wins!`;
+    wp.className = `win-player p${winner}`;
+  }
+
+  document.getElementById('final-p1').textContent = finalScores[0];
+  document.getElementById('final-p2').textContent = finalScores[1];
+
+
+  const hasPenalty = penalties[0] > 0 || penalties[1] > 0;
+  const breakdown = document.getElementById('penalty-breakdown');
+  const lines = document.getElementById('penalty-lines');
+  if (breakdown && lines) {
+    if (hasPenalty) {
+      breakdown.style.display = 'block';
+      let html = '';
+
+      const p1Name_disp = p1Name || 'Player 1';
+      const p2Name_disp = p2Name || 'Player 2';
+      html += `<div style="color:#c8c9b8;">${p1Name_disp}: ${rawScores[0]} pts`;
+      if (penalties[0] > 0) html += ` <span style="color:#ff6b4a;">− ${penalties[0]} penalty</span> = <span style="color:#c8f060;">${finalScores[0]}</span>`;
+      html += `</div>`;
+      html += `<div style="color:#c8c9b8;">${p2Name_disp}: ${rawScores[1]} pts`;
+      if (penalties[1] > 0) html += ` <span style="color:#ff6b4a;">− ${penalties[1]} penalty</span> = <span style="color:#c8f060;">${finalScores[1]}</span>`;
+      html += `</div>`;
+
+      for (let p = 0; p < 2; p++) {
+        if (penalties[p] > 0) {
+          const rem = PIECE_DEFS.filter((_, i) => !GameState.usedPieces[p].includes(i));
+          const name = p === 0 ? p1Name_disp : p2Name_disp;
+          const pieceSummary = rem.map(pc => `${pc.units}u`).join(' + ');
+          html += `<div style="color:#6a6f58;font-size:10px;margin-top:2px;">${name} unused: ${pieceSummary} = −${penalties[p]}</div>`;
+        }
+      }
+      lines.innerHTML = html;
+    } else {
+      breakdown.style.display = 'none';
+    }
+  }
+
+  const inspBtn = document.getElementById('win-inspect-btn');
+  const replayBtn = document.getElementById('win-replay-btn');
+  if (inspBtn)  inspBtn.textContent  = 'Inspect';
+  if (replayBtn) replayBtn.textContent = 'New Game';
+
+  const ws = document.getElementById('win-screen');
+  ws.classList.add('visible');
+
+  // Mixpanel
+  try {
+    const sessionSec = Math.round((Date.now() - gameStartTime) / 1000);
+    mixpanel.track('game_end', {
+      winner,
+      win_type: type,
+      total_moves: GameState.round,
+      score_p1_raw: rawScores[0],
+      score_p2_raw: rawScores[1],
+      score_p1_final: finalScores[0],
+      score_p2_final: finalScores[1],
+      penalty_p1: penalties[0],
+      penalty_p2: penalties[1],
+      session_seconds: sessionSec,
+      invalid_attempts: invalidAttempts,
+      panel_opens: panelOpenCount,
+      platform: isMobile() ? 'mobile' : 'desktop',
+      game_notation: gameNotation.join(' | '),
+    });
+  } catch(e){}
+}
+
+
+document.getElementById('phase-btn').addEventListener('click',()=>{
+
+  if (gameMode !== 'offline' && !isMyTurn()) {
+    openPiecePanel();
+    return;
+  }
+  if(GameState.phase==='inspect'){
+    openPiecePanel();
+    GameState.phase='select';
+    document.getElementById('phase-btn').textContent=t('btn_cancel');
+    document.getElementById('game-phase').textContent=t('phase_select');
+  } else if(GameState.phase==='place'||GameState.phase==='select'){
+    deselectPiece(); removeGhost(); closePiecePanel();
+    GameState.phase='inspect';
+    document.getElementById('phase-btn').textContent=t('btn_select');
+    document.getElementById('game-phase').textContent=t('phase_inspect');
+  }
+});
+
+
+const isMobile = () => {
+  const hasTouch = navigator.maxTouchPoints > 0 ||
+                   window.matchMedia('(pointer: coarse)').matches;
+  const isNarrow = window.innerWidth <= 1024;
+  return hasTouch || isNarrow;
+};
+let mobileOrbitActive = false;
+let mobileOrbitDir = 'left'; // left|right|up|down
+
+
+function startMobileOrbitDir(dir) {
+  mobileOrbitActive = true;
+  mobileOrbitDir = dir;
+}
+function startMobileOrbit() { startMobileOrbitDir('left'); }
+function stopMobileOrbit() { mobileOrbitActive = false; }
+
+
+let lastRotateTime = 0;
+function mobileRotateSafe(e, axis, dir) {
+  e.preventDefault();
+  const now = Date.now();
+  if (now - lastRotateTime < 200) return; // debounce 200ms
+  lastRotateTime = now;
+  mobileRotate(axis, dir);
+}
+
+function mobileRotate(axis, dir) {
+  const step = Math.PI / 2;
+  if (axis === 'x') previewRotation.x += dir * step;
+  if (axis === 'y') previewRotation.y += dir * step;
+  if (axis === 'z') previewRotation.z += dir * step;
+
+  if (lastMobileTouchX !== null) {
+    updateMobileGhost(lastMobileTouchX, lastMobileTouchY);
+  }
+}
+
+
+let lastMobileTouchX = null;
+let lastMobileTouchY = null;
+
+function mobileOpenPanel() {
+  openPiecePanel();
+  GameState.phase = 'select';
+}
+
+function setMobilePlaceMode(active) {
+  if (!isMobile()) return;
+  document.getElementById('mob-inspect-mode').style.display = active ? 'none' : 'block';
+  document.getElementById('mob-place-mode').style.display = active ? 'block' : 'none';
+  if (!active) {
+    const btn = document.getElementById('mobile-place-btn');
+    if (btn) { btn.classList.remove('enabled'); btn.textContent = 'Place'; }
+  }
+}
+
+function mobileCancelPlace() {
+  deselectPiece(); removeGhost();
+  GameState.phase = 'inspect';
+  setMobilePlaceMode(false);
+  updateMobileTurnUI();
+}
+
+function mobilePlacePiece() {
+  if (!snapValid || !currentSnapOffset) return;
+
+  if (gameMode !== 'offline' && !isMyTurn()) return;
+  const piece = PIECE_DEFS[GameState.selectedPieceIndex];
+  pendingRotated = getRotatedCubes(piece, previewRotation);
+  placePiece(pendingRotated, { ...currentSnapOffset }, GameState.currentPlayer, GameState.selectedPieceIndex);
+  setMobilePlaceMode(false);
+}
+
+function updateMobileTurnUI() {
+  if (!isMobile()) return;
+  const p = GameState.currentPlayer;
+  const el = document.getElementById('mob-turn-name');
+  if (el) { el.textContent = t('player' + p); el.className = `mobile-turn-name p${p}`; }
+}
+
+function updateMobilePlaceBtn(valid) {
+  if (!isMobile()) return;
+  const btn = document.getElementById('mobile-place-btn');
+  if (!btn) return;
+  if (valid) { btn.classList.add('enabled'); btn.textContent = 'Place ✓'; }
+  else { btn.classList.remove('enabled'); btn.textContent = 'Place'; }
+}
+
+function updateMobileGhost(clientX, clientY) {
+  if (GameState.selectedPieceIndex < 0) return;
+  const mx = (clientX / W()) * 2 - 1;
+  const my = -(clientY / H()) * 2 + 1;
+  raycaster.setFromCamera({ x: mx, y: my }, camera);
+  const hits = raycaster.intersectObjects([...boardCubes, ...placedMeshes], false);
+  const piece = PIECE_DEFS[GameState.selectedPieceIndex];
+  const rotated = getRotatedCubes(piece, previewRotation);
+  if (!hits.length) { removeGhost(); updateMobilePlaceBtn(false); return; }
+  const hit = hits[0];
+  const fn = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+  fn.x = Math.round(fn.x); fn.y = Math.round(fn.y); fn.z = Math.round(fn.z);
+  const ud = hit.object.userData;
+  if (ud.gx === undefined) { removeGhost(); updateMobilePlaceBtn(false); return; }
+  const attachX = ud.gx + fn.x, attachY = ud.gy + fn.y, attachZ = ud.gz + fn.z;
+  const adjs = [{x:0,y:0,z:0},{x:1,y:0,z:0},{x:-1,y:0,z:0},{x:0,y:1,z:0},{x:0,y:-1,z:0},{x:0,y:0,z:1},{x:0,y:0,z:-1}];
+  let bestValid = null, bestInvalid = null, bestDist = Infinity;
+  for (const adj of adjs) {
+    const off = { x: attachX - rotated[0].x + adj.x, y: attachY - rotated[0].y + adj.y, z: attachZ - rotated[0].z + adj.z };
+    if (isValidPlacement(rotated, off)) { if (!bestValid) bestValid = off; break; }
+    else if (!hasCollision(rotated, off)) {
+      const d = Math.abs(adj.x)+Math.abs(adj.y)+Math.abs(adj.z);
+      if (d < bestDist) { bestDist = d; bestInvalid = off; }
+    }
+  }
+  if (bestValid) { showGhost(rotated, bestValid, true); updateMobilePlaceBtn(true); }
+  else if (bestInvalid) { showGhost(rotated, bestInvalid, false); updateMobilePlaceBtn(false); }
+  else { removeGhost(); updateMobilePlaceBtn(false); }
+}
+
+
+const _origSelectPieceMobile = selectPiece;
+selectPiece = function(index, player) {
+  _origSelectPieceMobile(index, player);
+  if (isMobile()) {
+    setMobilePlaceMode(true);
+    GameState.phase = 'place';
+  }
+};
+
+
+const _origFinalize = finalizePlacement;
+finalizePlacement = function(targets, animMeshes, player, pieceIndex) {
+  _origFinalize(targets, animMeshes, player, pieceIndex);
+  if (isMobile()) {
+    setMobilePlaceMode(false);
+    updateMobileTurnUI();
+  }
+};
+
+
+function updateMobilePanelBottom() {
+  if (window.innerWidth > 1024) return;
+  const mc = document.getElementById('mobile-controls');
+  const panel = document.getElementById('piece-panel');
+  if (!mc || !panel) return;
+  const h = mc.getBoundingClientRect().height || mc.offsetHeight;
+  panel.style.bottom = (h + 4) + 'px';
+}
+
+
+let lobbyLang = 'en';
+
+// roomCopyCode
+function roomCopyCode() {
+  const code = document.getElementById('room-code-text').textContent;
+  navigator.clipboard.writeText(code).then(()=>{
+    const btn = document.getElementById('room-copy-btn');
+    btn.textContent = 'Copied ✓'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ─── LOBBY & FIREBASE ROOM CODE ──────────────────────────────────────────────
+let gameMode   = 'offline';
+let localPlayer = 1;
+let roomId     = null;
+let roomRef    = null;
+let p1Name = 'Player 1';
+let p2Name     = 'Player 2';
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  return Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+function getLobbyName() {
+  const el = document.getElementById('lobby-name');
+  return el ? el.value.trim() || null : null;
+}
+function lobbyOffline() {
+  p1Name = 'Player 1'; p2Name = 'Player 2';
+  gameMode = 'offline'; hideLobby(); startGameEngine();
+}
+async function lobbyCreateRoom() {
+  try {
+    if (!window.db) throw new Error('no-db');
+    p1Name = p1Name || 'Player 1'; localPlayer = 1; gameMode = 'online-host';
+
+    let code, snap, attempts = 0;
+    do {
+      code = generateRoomCode();
+      snap = await window.db.ref('rooms/'+code).get();
+      attempts++;
+      if (attempts > 20) throw new Error('too-many-attempts');
+    } while(snap.exists());
+
+    roomId = code;
+    roomRef = window.db.ref('rooms/'+code);
+    await roomRef.set({
+      host_name: p1Name, guest_name: null, state: null,
+      created: Date.now(), expires: Date.now()+7200000, status: 'waiting'
+    });
+    document.getElementById('room-code-text').textContent = code;
+    showScreen('room-screen');
+    roomRef.child('guest_name').on('value', s => {
+      if(s.val()){ p2Name=s.val(); roomRef.child('guest_name').off('value'); startCountdown(); }
+    });
+  } catch(e) {
+    console.error('Create room error:', e);
+    if (e.message === 'no-db' || e.message?.includes('network') || e.message?.includes('fetch')) {
+      gameMode = 'offline'; hideLobby(); startGameEngine();
+    }
+  }
+}
+function lobbyShowJoin() { showScreen('join-screen'); setTimeout(()=>document.getElementById('join-code-input').focus(),100); }
+function joinInputChanged(el) { el.value=el.value.toUpperCase().replace(/[^A-Z]/g,''); document.getElementById('join-error').textContent=''; }
+async function joinSubmit() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if(code.length!==4){ document.getElementById('join-error').textContent='4-letter code required'; return; }
+  if(!window.db){ document.getElementById('join-error').textContent='No connection'; return; }
+  const snap = await window.db.ref('rooms/'+code).get();
+  if(!snap.exists()){ document.getElementById('join-error').textContent='Code not found'; return; }
+  const room = snap.val();
+  if(room.status!=='waiting'){ document.getElementById('join-error').textContent='Game already started'; return; }
+  if(Date.now()>room.expires){ document.getElementById('join-error').textContent='Code expired'; return; }
+  p2Name = p2Name || 'Player 2'; p1Name=room.host_name||'Player 1';
+  localPlayer=2; gameMode='online-guest'; roomId=code; roomRef=window.db.ref('rooms/'+code);
+  await roomRef.child('guest_name').set(p2Name);
+  await roomRef.child('status').set('playing');
+  startCountdown();
+}
+function roomCancel() { if(roomRef) roomRef.remove(); roomRef=null; roomId=null; showScreen('lobby'); }
+function joinCancel() { showLobby(); }
+function cancelJoin() { showLobby(); }
+function startCountdown() {
+  document.getElementById('cd-p1').textContent = p1Name;
+  document.getElementById('cd-p2').textContent = p2Name;
+  showScreen('countdown-screen');
+  let n=3;
+  const el=document.getElementById('cd-number');
+  el.textContent=n;
+  const iv=setInterval(()=>{
+    n--; if(n<=0){ clearInterval(iv); hideLobby(); startGameEngine(); }
+    else { el.textContent=n; el.style.animation='none'; requestAnimationFrame(()=>{ el.style.animation='countPulse 1s ease-in-out'; }); }
+  },1000);
+}
+function showScreen(id) {
+  ['lobby','nick-create','nick-enter','room-screen','join-screen','countdown-screen'].forEach(s=>{
+    const el=document.getElementById(s); if(el) el.style.display=s===id?'flex':'none';
+  });
+}
+function hideLobby() {
+  ['lobby','nick-create','nick-enter','room-screen','join-screen','countdown-screen'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+}
+function startGameEngine() {
+  document.getElementById('canvas-container').style.display='block';
+  document.getElementById('hud').style.display='flex';
+
+
+  requestAnimationFrame(() => {
+    const w = window.innerWidth, h = window.innerHeight;
+    if (renderer) {
+      renderer.setSize(w, h);
+      if (camera) { camera.aspect = w/h; camera.updateProjectionMatrix(); }
+    }
+    updateMobilePanelBottom();
+    setTimeout(updateMobilePanelBottom, 100);
+    setTimeout(updateMobilePanelBottom, 500);
+  });
+
+
+  const p1l=document.querySelector('#score-p1 .player-label');
+  const p2l=document.querySelector('#score-p2 .player-label');
+  const tn=document.getElementById('turn-name');
+  const mtn=document.getElementById('mob-turn-name');
+  if(p1l) p1l.textContent=p1Name;
+  if(p2l) p2l.textContent=p2Name;
+  if(tn)  tn.textContent=p1Name;
+  if(mtn) mtn.textContent=p1Name;
+
+
+  const loading=document.getElementById('loading');
+  loading.style.display='flex'; loading.style.opacity='1';
+  setTimeout(()=>{
+    loading.style.opacity='0';
+    setTimeout(()=>{ loading.style.display='none'; },500);
+  }, 1200);
+
+  // Three.js render loop
+  animate();
+
+  // Mixpanel
+  try {
+    gameStartTime = Date.now();
+    gameNotation = [];
+    invalidAttempts = 0;
+    panelOpenCount = 0;
+    mixpanel.track('game_start', {
+      lang: currentLang,
+      platform: isMobile()?'mobile':'desktop',
+      replay_number: replayCount,
+      game_mode: gameMode,
+    });
+  } catch(e){}
+
+  if(gameMode!=='offline'&&roomRef) setupOnlineSync();
+}
+
+// ─── ONLINE SYNC ──────────────────────────────────────────────────────────────
+
+function isMyTurn() {
+  if (gameMode === 'offline') return true;
+  return GameState.currentPlayer === localPlayer;
+}
+
+function showWaitingBanner(opponentName) {
+  const el = document.getElementById('online-waiting');
+  const txt = document.getElementById('ow-text');
+  if (txt) {
+    const name = opponentName || 'opponent';
+    txt.textContent = `${name} is playing...`;
+  }
+  if (el) {
+    el.classList.add('visible');
+    el.classList.remove('state-played');
+    el.classList.add('state-waiting');
+  }
+}
+
+function showPlayedBanner(opponentName) {
+  const el = document.getElementById('online-waiting');
+  const txt = document.getElementById('ow-text');
+  if (txt) {
+    const name = opponentName || 'opponent';
+    txt.textContent = `${name} played — your turn`;
+  }
+  if (el) {
+    el.classList.add('visible');
+    el.classList.remove('state-waiting');
+    el.classList.add('state-played');
+  }
+  // 2.5 saniye sonra banner kaybolur
+  setTimeout(() => hideWaitingBanner(), 2500);
+}
+
+function hideWaitingBanner() {
+  const el = document.getElementById('online-waiting');
+  if (el) {
+    el.classList.remove('visible', 'state-waiting', 'state-played');
+  }
+}
+
+function showYourTurnToast() {
+  const toast = document.getElementById('your-turn-toast');
+  if (!toast) return;
+  toast.textContent = 'your turn';
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 2200);
+}
+
+function updateOnlineTurnUI() {
+  if (gameMode === 'offline') return;
+  const oppName = localPlayer === 1 ? p2Name : p1Name;
+  if (isMyTurn()) {
+    hideWaitingBanner();
+  } else {
+    showWaitingBanner(oppName);
+  }
+}
+
+// Rakibin hamlesini sahneye uygula
+function applyRemoteMove(lastMove) {
+  if (!lastMove) return;
+  const { pieceIndex, targets, player } = lastMove;
+  if (player === localPlayer) return;
+  const rotated = targets.map(t => ({ x: t.gx, y: t.gy, z: t.gz }));
+  placePiece(rotated, { x: 0, y: 0, z: 0 }, player, pieceIndex, true);
+}
+
+function setupOnlineSync() {
+  if (!roomRef) return;
+  updateOnlineTurnUI();
+
+  // Hamle senkronizasyonu
+  roomRef.child('state').on('value', snap => {
+    const state = snap.val();
+    if (!state || !state.lastMove) return;
+    const lastMove = state.lastMove;
+    if (lastMove.player === localPlayer) return;
+    applyRemoteMove(lastMove);
+    const oppName = localPlayer === 1 ? p2Name : p1Name;
+    setTimeout(() => {
+      showPlayedBanner(oppName);
+      showYourTurnToast();
+    }, 500);
+  });
+
+
+  roomRef.child('gameOver').on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    if (document.getElementById('win-screen').classList.contains('visible')) return;
+    if (data.usedPieces) GameState.usedPieces = data.usedPieces;
+    showWinScreen(data.winner, data.type || 'kaktus');
+  });
+}
+
+
+const _origFinalizeFB = finalizePlacement;
+finalizePlacement = function(targets, animMeshes, player, pieceIndex, skipSync) {
+  _origFinalizeFB(targets, animMeshes, player, pieceIndex);
+  if (gameMode !== 'offline' && roomRef && !skipSync && player === localPlayer) {
+    roomRef.child('state').set({
+      lastPlayer: player,
+      lastMove: {
+        pieceIndex,
+        targets: targets.map(t => ({ gx: t.gx, gy: t.gy, gz: t.gz })),
+        player,
+      },
+      round: GameState.round,
+      ts: Date.now(),
+    });
+    updateOnlineTurnUI();
+  }
+};
+
+window.addEventListener('resize', updateMobilePanelBottom);
+
+
+// ─── HTP (HOW TO PLAY) ───────────────────────────────────────────────────────
+let htpCur = 0;
+const HTP_TOTAL = 6;
+
+function htpNav(dir) {
+  htpCur = Math.max(0, Math.min(HTP_TOTAL - 1, htpCur + dir));
+  document.getElementById('htp-track').style.transform = 'translateX(-' + (htpCur * 100) + '%)';
+  const back = document.getElementById('htp-back');
+  const next = document.getElementById('htp-next');
+  back.disabled = htpCur === 0;
+  back.style.opacity = htpCur === 0 ? '0.22' : '1';
+  back.style.pointerEvents = htpCur === 0 ? 'none' : 'auto';
+  if (htpCur === HTP_TOTAL - 1) {
+    next.textContent = 'Play →';
+    next.onclick = htpSkip;
+  } else {
+    next.textContent = 'Next →';
+    next.onclick = function(){ htpNav(1); };
+  }
+  document.querySelectorAll('.hd').forEach(function(d, i) {
+    d.style.width = i === htpCur ? '20px' : '6px';
+    d.style.borderRadius = i === htpCur ? '3px' : '50%';
+    d.style.background = i === htpCur ? '#c8f060' : '#3a4030';
+  });
+}
+
+function htpSkip() {
+  try { localStorage.setItem('cactus_played','1'); } catch(e){}
+  document.getElementById('htp').style.display = 'none';
+  showLobby();
+}
+
+function htpShow() {
+  htpCur = 0;
+  document.getElementById('htp-track').style.transform = 'translateX(0)';
+  document.getElementById('htp-back').disabled = true;
+  document.getElementById('htp-back').style.opacity = '0.22';
+  document.getElementById('htp-back').style.pointerEvents = 'none';
+  document.getElementById('htp-next').textContent = 'Next →';
+  document.getElementById('htp-next').onclick = function(){ htpNav(1); };
+  document.querySelectorAll('.hd').forEach(function(d,i){
+    d.style.width = i===0?'20px':'6px';
+    d.style.borderRadius = i===0?'3px':'50%';
+    d.style.background = i===0?'#c8f060':'#3a4030';
+  });
+  document.getElementById('htp').style.display = 'flex';
+  hideLobbyScreens();
+}
+
+function showLobby() {
+  hideLobbyScreens();
+  document.getElementById('lobby').style.display = 'flex';
+}
+
+function hideLobbyScreens() {
+  ['lobby','nick-create','nick-enter','room-screen','join-screen','countdown-screen'].forEach(function(id){
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+// ─── TOOLTIP (mobile) ────────────────────────────────────────────────────────
+const TIP_TEXTS = {
+  create: 'Play on separate devices with a friend — you create the room, they enter your code.',
+  enter:  'Your friend created a room. Enter the 4-letter code they shared with you.',
+  offline:'Both players take turns on this same device.',
+};
+function showCredits() {
+  document.getElementById('credits-modal').style.display = 'flex';
+}
+function hideCredits() {
+  document.getElementById('credits-modal').style.display = 'none';
+}
+
+function showTip(key) {
+  if (window.matchMedia('(hover: hover)').matches) return;
+  document.getElementById('tip-popup-text').textContent = TIP_TEXTS[key];
+  document.getElementById('tip-popup').style.display = 'flex';
+}
+function hideTip() {
+  document.getElementById('tip-popup').style.display = 'none';
+}
+
+// ─── NICKNAME FLOW ───────────────────────────────────────────────────────────
+function goNickCreate() {
+  hideLobbyScreens();
+  const el = document.getElementById('nick-create');
+  el.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('nick-create-input').focus(); }, 150);
+}
+
+function goNickEnter() {
+  hideLobbyScreens();
+  const el = document.getElementById('nick-enter');
+  el.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('nick-enter-input').focus(); }, 150);
+}
+
+function nickNextCreate() {
+  const val = document.getElementById('nick-create-input').value.trim();
+  p1Name = val || 'Player 1';
+  lobbyCreateRoom();
+}
+
+function nickNextEnter() {
+  const val = document.getElementById('nick-enter-input').value.trim();
+  p2Name = val || 'Player 2';
+  hideLobbyScreens();
+  document.getElementById('join-screen').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('join-code-input').focus(); }, 100);
+}
+
+// Override getLobbyName — no longer needed, names set via nickname screens
+function getLobbyName() { return null; }
+
+document.addEventListener('DOMContentLoaded', () => {
+  // LocalStorage check — skip HTP if already played
+  let hasPlayed = false;
+  try { hasPlayed = !!localStorage.getItem('cactus_played'); } catch(e){}
+  if (hasPlayed) {
+    document.getElementById('htp').style.display = 'none';
+    showLobby();
+  }
+
+  // Lobby buttons → nickname screens
+  const btnCreate  = document.getElementById('btn-create');
+  const btnJoin    = document.getElementById('btn-join');
+  const btnOffline = document.getElementById('btn-offline');
+  const btnCopy    = document.getElementById('room-copy-btn');
+  const btnRoomCancel = document.getElementById('room-cancel-text');
+  const btnJoinSubmit = document.getElementById('btn-join-submit');
+  const btnJoinCancel = document.getElementById('lbl-join-cancel');
+  const joinInput  = document.getElementById('join-code-input');
+
+  if (btnCreate)  btnCreate.addEventListener('click', goNickCreate);
+  if (btnJoin)    btnJoin.addEventListener('click', goNickEnter);
+  if (btnOffline) btnOffline.addEventListener('click', lobbyOffline);
+  if (btnCopy)    btnCopy.addEventListener('click', roomCopyCode);
+  if (btnRoomCancel) btnRoomCancel.addEventListener('click', roomCancel);
+  if (btnJoinSubmit) btnJoinSubmit.addEventListener('click', joinSubmit);
+  if (btnJoinCancel) btnJoinCancel.addEventListener('click', cancelJoin);
+  if (joinInput) {
+    joinInput.addEventListener('input', () => joinInputChanged(joinInput));
+    joinInput.addEventListener('keydown', (e) => { if(e.key==='Enter') joinSubmit(); });
+  }
+});
+
+
+window.addEventListener('beforeunload', () => {
+  try {
+    if (GameState.round > 0 && !document.getElementById('win-screen').classList.contains('visible')) {
+      mixpanel.track('game_abandoned', {
+        move_number: GameState.round,
+        score_p1: GameState.scores[0],
+        score_p2: GameState.scores[1],
+        session_seconds: Math.round((Date.now() - gameStartTime) / 1000),
+        platform: isMobile() ? 'mobile' : 'desktop',
+      });
+    }
+  } catch(e){}
+});
+
+</script>
+
+<!-- Confirm Dialog -->
+<!-- Online waiting overlay -->
+<div id="online-waiting">
+  <div class="ow-dot-row">
+    <div class="ow-dot"></div>
+    <div class="ow-dot"></div>
+    <div class="ow-dot"></div>
+  </div>
+  <div class="ow-text" id="ow-text">Opponent is thinking...</div>
+</div>
+
+<!-- Your turn toast -->
+<div id="your-turn-toast">YOUR TURN</div>
+
+<div id="confirm-dialog" style="
+  display:none;position:absolute;inset:0;background:rgba(0,0,0,0.65);
+  z-index:50;align-items:center;justify-content:center;
+">
+  <div style="
+    background:#131509;border:1px solid #3a3f2a;border-radius:14px;
+    padding:28px 32px;text-align:center;max-width:280px;
+    box-shadow:0 0 40px rgba(0,0,0,0.8);
+  ">
+    <div style="font-size:13px;letter-spacing:0.2em;color:#a8ad94;margin-bottom:10px;">Place here?</div>
+    <div style="font-size:16px;font-weight:700;color:#f0f2e6;margin-bottom:22px;">Place the piece at this position</div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button onclick="cancelPlacement()" style="
+        background:rgba(255,255,255,0.06);border:1px solid #3a3f2a;
+        color:#a8ad94;padding:10px 22px;border-radius:8px;cursor:pointer;
+        font-family:monospace;font-size:13px;font-weight:700;letter-spacing:0.1em;
+      ">Cancel</button>
+      <button onclick="confirmPlacement()" style="
+        background:#c8f060;border:none;color:#0a0b09;
+        padding:10px 22px;border-radius:8px;cursor:pointer;
+        font-family:monospace;font-size:13px;font-weight:700;letter-spacing:0.1em;
+      ">✓ Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bonus Toast -->
+<div id="bonus-toast" style="
+  position:absolute;top:90px;left:50%;transform:translateX(-50%);
+  background:#131509;border:1px solid #c8f060;border-radius:8px;
+  padding:10px 20px;font-size:14px;font-weight:700;color:#c8f060;
+  letter-spacing:0.12em;pointer-events:none;
+  opacity:0;transition:opacity 0.3s;white-space:nowrap;z-index:30;
+"></div>
+
+<!-- Win Screen -->
+<div id="win-screen" style="
+  display:none;position:absolute;inset:0;background:rgba(0,0,0,0.82);
+  z-index:60;align-items:center;justify-content:center;
+">
+  <div style="
+    background:#131509;border:1px solid #3a3f2a;border-radius:16px;
+    padding:36px 44px;text-align:center;min-width:320px;max-width:400px;
+    box-shadow:0 0 60px rgba(0,0,0,0.9);
+  ">
+    <div id="win-type" style="font-size:26px;margin-bottom:10px;"></div>
+    <div id="win-player" style="font-size:22px;font-weight:900;letter-spacing:0.05em;margin-bottom:16px;"></div>
+
+    <!-- Final skor -->
+    <div style="
+      background:rgba(255,255,255,0.04);border:1px solid #3a3f2a;border-radius:8px;
+      padding:14px 20px;margin-bottom:10px;
+    ">
+      <div style="display:flex;justify-content:space-between;gap:24px;">
+        <div style="text-align:center;">
+          <div style="font-size:10px;letter-spacing:0.2em;color:var(--p1);font-weight:700;margin-bottom:4px;">PLAYER 1</div>
+          <div id="final-p1" style="font-size:28px;font-weight:900;color:#f0f2e6;">0</div>
+          <div style="font-size:9px;color:#b8bda8;letter-spacing:0.1em;">pts</div>
+        </div>
+        <div style="width:1px;background:#3a3f2a;"></div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;letter-spacing:0.2em;color:var(--p2);font-weight:700;margin-bottom:4px;">PLAYER 2</div>
+          <div id="final-p2" style="font-size:28px;font-weight:900;color:#f0f2e6;">0</div>
+          <div style="font-size:9px;color:#b8bda8;letter-spacing:0.1em;">pts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ceza breakdown — JS tarafından doldurulur, yoksa gizli -->
+    <div id="penalty-breakdown" style="display:none;
+      background:rgba(255,255,255,0.02);border:1px solid #2a2e1a;border-radius:6px;
+      padding:10px 14px;margin-bottom:18px;text-align:left;
+    ">
+      <div style="font-size:9px;letter-spacing:0.18em;color:#6a6f58;margin-bottom:8px;">Score breakdown</div>
+      <div id="penalty-lines" style="font-family:'Courier New',monospace;font-size:11px;color:#8a8f78;line-height:1.8;"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="enterInspectFromWin()" style="
+        background:rgba(255,255,255,0.07);border:1px solid #3a3f2a;
+        color:#f0f2e6;padding:11px 22px;border-radius:8px;cursor:pointer;
+        font-family:'Courier New',monospace;font-size:12px;
+        font-weight:700;letter-spacing:0.15em;transition:all 0.2s;
+      " id="win-inspect-btn">Inspect</button>
+      <button onclick="replayGame()" style="
+        background:#c8f060;border:none;color:#0a0b09;
+        padding:11px 22px;border-radius:8px;cursor:pointer;
+        font-family:'Courier New',monospace;font-size:12px;
+        font-weight:700;letter-spacing:0.15em;
+      " id="win-replay-btn">New Game</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Son hamle vurgulama */
+  #last-move-toggle {
+    position: absolute;
+    left: 20px;
+    bottom: 90px;
+    background: rgba(10,11,9,0.88);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: all;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.2s;
+  }
+  #last-move-toggle:hover { border-color: var(--accent); }
+  #last-move-chk {
+    width: 14px; height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #last-move-toggle label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  #confirm-dialog { display:flex!important; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+  #confirm-dialog.visible { opacity:1; pointer-events:all; }
+  #bonus-toast.visible { opacity:1!important; }
+  #win-screen { display:flex!important; opacity:0; pointer-events:none; transition:opacity 0.3s; }
+  #win-screen.visible { opacity:1; pointer-events:all; }
+  .win-player.p1 { color:var(--p1); }
+  .win-player.p2 { color:var(--p2); }
+</style>
+
+<!-- Kural Modalı -->
+<div id="rules-modal" style="
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);
+  z-index:80;align-items:center;justify-content:center;
+">
+  <div style="
+    background:#131509;border:1px solid #3a3f2a;border-radius:16px;
+    width:min(540px,92vw);max-height:85vh;overflow-y:auto;
+    box-shadow:0 8px 48px rgba(0,0,0,0.8);
+    scrollbar-width:thin;scrollbar-color:#3a3f2a transparent;
+  ">
+    <!-- Modal Header -->
+    <div style="
+      display:flex;align-items:center;justify-content:space-between;
+      padding:20px 24px 16px;border-bottom:1px solid #3a3f2a;
+      position:sticky;top:0;background:#131509;z-index:1;
+    ">
+      <div style="font-size:16px;font-weight:900;color:#c8f060;letter-spacing:0.15em;" data-i18n="rules_title">KAKTÜS — KURALLAR</div>
+      <button onclick="closeRulesModal()" style="
+        background:none;border:none;color:#a8ad94;font-size:20px;
+        cursor:pointer;font-family:monospace;padding:2px 8px;
+      ">✕</button>
+    </div>
+
+    <!-- Sekmeler -->
+    <div style="display:flex;border-bottom:1px solid #3a3f2a;">
+      <button class="rules-tab active" id="rtab-rules" onclick="switchRulesTab('rules')" style="
+        flex:1;padding:12px;background:none;border:none;border-bottom:2px solid #c8f060;
+        color:#f0f2e6;font-family:'Courier New',monospace;font-size:11px;font-weight:700;
+        letter-spacing:0.15em;cursor:pointer;
+      " data-i18n="tab_rules">kurallar</button>
+      <button class="rules-tab" id="rtab-example" onclick="switchRulesTab('example')" style="
+        flex:1;padding:12px;background:none;border:none;border-bottom:2px solid transparent;
+        color:#a8ad94;font-family:'Courier New',monospace;font-size:11px;font-weight:700;
+        letter-spacing:0.15em;cursor:pointer;
+      " data-i18n="tab_example">örnek oyun</button>
+    </div>
+
+    <!-- Kurallar içeriği -->
+    <div id="rules-content" style="padding:20px 24px;">
+      <div id="rules-text"></div>
+    </div>
+
+    <!-- Örnek oyun içeriği -->
+    <div id="example-content" style="padding:20px 24px;display:none;">
+      <div id="example-text"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #rules-modal { display:flex!important; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+  #rules-modal.visible { opacity:1; pointer-events:all; }
+  .rules-section { margin-bottom:20px; }
+  .rules-section h3 {
+    font-size:11px;letter-spacing:0.2em;
+    color:#c8f060;margin-bottom:10px;font-weight:700;
+  }
+  .rules-section p, .rules-section li {
+    font-size:12px;color:#a8ad94;line-height:1.8;font-weight:600;
+    margin-bottom:6px;
+  }
+  .rules-section ul { padding-left:16px; }
+  .rules-badge {
+    display:inline-block;background:rgba(200,240,96,0.12);
+    border:1px solid rgba(200,240,96,0.3);border-radius:4px;
+    padding:2px 8px;color:#c8f060;font-size:11px;font-weight:700;
+    margin-right:6px;letter-spacing:0.1em;
+  }
+  .example-step {
+    background:rgba(255,255,255,0.03);border:1px solid #3a3f2a;
+    border-radius:8px;padding:14px 16px;margin-bottom:12px;
+  }
+  .example-step .step-num {
+    font-size:10px;letter-spacing:0.2em;color:#c8f060;
+    margin-bottom:6px;font-weight:700;
+  }
+  .example-step p { font-size:12px;color:#a8ad94;line-height:1.7;font-weight:600; }
+  .coming-soon {
+    text-align:center;padding:32px 20px;color:#a8ad94;
+    font-size:12px;letter-spacing:0.1em;
+  }
+</style>
+  <!-- MOBİL KONTROL PANELİ -->
+<div id="mobile-controls">
+  <div class="mobile-ctrl-bar">
+
+    <!-- Mod: İnceleme (taş seçilmemiş) -->
+    <div id="mob-inspect-mode">
+      <div class="mobile-top-row">
+        <div class="mobile-turn-info">
+          <div class="mobile-turn-label" data-i18n="turn_label">Turn</div>
+          <div class="mobile-turn-name p1" id="mob-turn-name">Player 1</div>
+        </div>
+        <button id="mobile-phase-btn" onclick="mobileOpenPanel()">Select Piece →</button>
+      </div>
+      <!-- Son hamle + ipucu satırı -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:7px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="mob-last-move-chk"
+            onchange="toggleLastMoveHighlight(this.checked);document.getElementById('last-move-chk').checked=this.checked;"
+            style="width:13px;height:13px;accent-color:var(--accent);">
+          <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.08em;" data-i18n="highlight_last">Highlight last move</span>
+        </label>
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.08em;">1 finger rotate · 2 finger zoom</span>
+      </div>
+    </div>
+
+    <!-- Mod: Yerleştirme (taş seçildi) -->
+    <div id="mob-place-mode" style="display:none;">
+
+      <!-- Döndürme grid -->
+      <div id="mobile-rotate-grid" class="visible" style="margin-bottom:8px;">
+        <div class="rot-btn-group">
+          <div class="rot-label">X</div>
+          <div class="rot-btn-pair">
+            <button class="rot-btn" ontouchstart="mobileRotateSafe(event,'x',-1)">−</button>
+            <button class="rot-btn" ontouchstart="mobileRotateSafe(event,'x',1)">+</button>
+          </div>
+        </div>
+        <div class="rot-btn-group">
+          <div class="rot-label">Y</div>
+          <div class="rot-btn-pair">
+            <button class="rot-btn" ontouchstart="mobileRotateSafe(event,'y',-1)">−</button>
+            <button class="rot-btn" ontouchstart="mobileRotateSafe(event,'y',1)">+</button>
+          </div>
+        </div>
+        <div class="rot-btn-group">
+          <div class="rot-label">Z</div>
+          <div class="rot-btn-pair">
+            <button class="rot-btn" ontouchstart="mobileRotateSafe(event,'z',-1)">−</button>
+            <button class="rot-btn" ontouchstart="mobileRotateSafe(event,'z',1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alt satır: Yerleştir + Vazgeç -->
+      <div style="display:flex;gap:8px;">
+        <button id="mobile-place-btn" class="visible" style="flex:3;" ontouchstart="mobilePlacePiece()">
+          Place
+        </button>
+        <button id="mobile-cancel-btn" style="display:block;flex:1;" ontouchstart="mobileCancelPlace()">✕</button>
+      </div>
+
+      <!-- İpucu -->
+      <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:6px;letter-spacing:0.08em;">
+        1 finger slide · 2 finger rotate · green = ready
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Son hamle vurgulama -->
+<div id="last-move-toggle">
+  <input type="checkbox" id="last-move-chk" onchange="toggleLastMoveHighlight(this.checked)">
+  <label for="last-move-chk" data-i18n="highlight_last">Highlight last move</label>
+</div>
+
+</body>
+</html>
