@@ -1507,6 +1507,12 @@ mixpanel.init('1eb5bf0eac8219fa740e14976812d294', {
       </div>
     </div>
     <button onclick="htpShow()" style="background:transparent;border:none;color:#7a8a60;font-family:'Courier New',monospace;font-size:13px;letter-spacing:0.16em;cursor:pointer;padding:8px 0;text-decoration:underline;text-underline-offset:4px;margin-top:8px;">How to Play?</button>
+
+    <button id="cb-toggle-btn" onclick="toggleColorblind()" style="background:transparent;border:none;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;cursor:pointer;padding:4px 0;margin-top:4px;display:flex;align-items:center;gap:6px;color:#5a6e40;transition:color 0.18s;">
+      <span id="cb-icon">◑</span>
+      <span id="cb-label">Colorblind Mode: Off</span>
+    </button>
+
     <button onclick="showCredits()" style="background:transparent;border:none;color:#3a4a28;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.16em;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px;margin-top:2px;transition:color 0.18s;" onmouseover="this.style.color='#5a6e40'" onmouseout="this.style.color='#3a4a28'">Credits</button>
   </div>
 </div>
@@ -1730,6 +1736,32 @@ mixpanel.init('1eb5bf0eac8219fa740e14976812d294', {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <script>
+
+// ─── COLORBLIND MODE — en başta tanımlanmalı ─────────────────────────────────
+let colorblindMode = false;
+try { colorblindMode = localStorage.getItem('cactus_cb') === '1'; } catch(e) {}
+
+function toggleColorblind() {
+  colorblindMode = !colorblindMode;
+  try { localStorage.setItem('cactus_cb', colorblindMode ? '1' : '0'); } catch(e) {}
+  updateColorblindUI();
+}
+
+function updateColorblindUI() {
+  const btn   = document.getElementById('cb-toggle-btn');
+  const label = document.getElementById('cb-label');
+  const icon  = document.getElementById('cb-icon');
+  if (!label) return;
+  if (colorblindMode) {
+    label.textContent = 'Colorblind Mode: On';
+    if (icon) icon.textContent = '◕';
+    if (btn)  btn.style.color  = '#c8f060';
+  } else {
+    label.textContent = 'Colorblind Mode: Off';
+    if (icon) icon.textContent = '◑';
+    if (btn)  btn.style.color  = '#5a6e40';
+  }
+}
 
 let currentLang = 'en';
 
@@ -2013,6 +2045,18 @@ const MAT_LIGHT_GREEN = new THREE.MeshStandardMaterial({
 
 
 function getPieceMaterial(player, units) {
+  if (colorblindMode) {
+    // Colorblind mod — Okabe-Ito paleti:
+    // P1: mavi #0077BB  — deuteranopia/protanopia'da sarıdan net ayrışır (6.9:1)
+    // P2: sarı #EE9900  — her renk körlüğü tipinde maviden net ayrışır
+    const color = player === 1 ? 0x0077BB : 0xEE9900;
+    return new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.45,
+      metalness: 0.08,
+      envMapIntensity: 0.5,
+    });
+  }
   const idx = units - 2;
   const colors = player === 1 ? P1_COLORS : P2_COLORS;
   const color = colors[Math.min(idx, colors.length - 1)];
@@ -3010,6 +3054,9 @@ function cancelPlacement() {}
 
 function placePiece(rotated,offset,player,pieceIndex){
   const piece=PIECE_DEFS[pieceIndex];
+  // Animasyon süresince (400ms) mousemove ghost oluşturmasın
+  GameState.phase = 'inspect';
+  GameState.selectedPieceIndex = -1;
   removeGhost();
   const targets=rotated.map(c=>({gx:c.x+offset.x,gy:c.y+offset.y,gz:c.z+offset.z}));
   const group=new THREE.Group();
@@ -4108,6 +4155,7 @@ function htpShow() {
 function showLobby() {
   hideLobbyScreens();
   document.getElementById('lobby').style.display = 'flex';
+  updateColorblindUI();
 }
 
 function hideLobbyScreens() {
