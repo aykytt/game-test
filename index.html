@@ -3219,60 +3219,93 @@ function showMoveScore(targets, player, basePoints, contactCount, contactBonus, 
 }
 
 // Yatay halka: board çevresini saat yönünde sıralı 12 pozisyon (gy sabit)
-const CONTINUITY_H_LOOP = [
-  [-1,-1], [-1, 0], [-1, 1], [-1, 2],
-  [ 0, 2], [ 1, 2],
-  [ 2, 2], [ 2, 1], [ 2, 0], [ 2,-1],
-  [ 1,-1], [ 0,-1],
-];
+// Tum yuzey pozisyonlari seti (yan yuzeyler + ust/alt kare yuzeyler)
+function buildSurfaceSet() {
+  const s = new Set();
+  for (let gy = 0; gy < 8; gy++) {
+    for (let gz = -1; gz <= 2; gz++) { s.add(`-1,${gy},${gz}`); s.add(`2,${gy},${gz}`); }
+    for (let gx = -1; gx <= 2; gx++) { s.add(`${gx},${gy},-1`); s.add(`${gx},${gy},2`); }
+  }
+  // Ust kare yuzey: gy=8, gx∈{0,1}, gz∈{0,1}
+  for (let gx = 0; gx <= 1; gx++) for (let gz = 0; gz <= 1; gz++) s.add(`${gx},8,${gz}`);
+  // Alt kare yuzey: gy=-1, gx∈{0,1}, gz∈{0,1}
+  for (let gx = 0; gx <= 1; gx++) for (let gz = 0; gz <= 1; gz++) s.add(`${gx},-1,${gz}`);
+  return s;
+}
+const SURFACE_SET = buildSurfaceSet();
 
-// Dikey dis sutunlar: yuzey uzerindeki tum (gx,gz) ciftleri
-const CONTINUITY_V_COLS = [
-  [-1,-1],[-1, 0],[-1, 1],[-1, 2],
-  [ 2,-1],[ 2, 0],[ 2, 1],[ 2, 2],
-  [ 0,-1],[ 1,-1],
-  [ 0, 2],[ 1, 2],
-];
+// Yuzey komsulugu: 6-yon + kose arista baglantilari
+// Ust/alt kare yuzeyi yan yuzeylerle baglayan kopru
+function getSurfaceNeighbors(gx, gy, gz) {
+  const neighbors = [];
+  const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  for (const [dx,dy,dz] of dirs) {
+    const k = `${gx+dx},${gy+dy},${gz+dz}`;
+    if (SURFACE_SET.has(k)) neighbors.push(k);
+  }
+  // Kose arista: ust yuzey (gy=8) <-> yan yuzey (gy=7)
+  if (gy === 8) {
+    if (gx === 0) neighbors.push(`-1,7,${gz}`);
+    if (gx === 1) neighbors.push(`2,7,${gz}`);
+    if (gz === 0) neighbors.push(`${gx},7,-1`);
+    if (gz === 1) neighbors.push(`${gx},7,2`);
+  }
+  // Kose arista: alt yuzey (gy=-1) <-> yan yuzey (gy=0)
+  if (gy === -1) {
+    if (gx === 0) neighbors.push(`-1,0,${gz}`);
+    if (gx === 1) neighbors.push(`2,0,${gz}`);
+    if (gz === 0) neighbors.push(`${gx},0,-1`);
+    if (gz === 1) neighbors.push(`${gx},0,2`);
+  }
+  // Yan yuzeyden ust/alt yuzeye
+  if (gy === 7) {
+    if (gx === -1 && gz >= 0 && gz <= 1) neighbors.push(`0,8,${gz}`);
+    if (gx ===  2 && gz >= 0 && gz <= 1) neighbors.push(`1,8,${gz}`);
+    if (gz === -1 && gx >= 0 && gx <= 1) neighbors.push(`${gx},8,0`);
+    if (gz ===  2 && gx >= 0 && gx <= 1) neighbors.push(`${gx},8,1`);
+  }
+  if (gy === 0) {
+    if (gx === -1 && gz >= 0 && gz <= 1) neighbors.push(`0,-1,${gz}`);
+    if (gx ===  2 && gz >= 0 && gz <= 1) neighbors.push(`1,-1,${gz}`);
+    if (gz === -1 && gx >= 0 && gx <= 1) neighbors.push(`${gx},-1,0`);
+    if (gz ===  2 && gx >= 0 && gx <= 1) neighbors.push(`${gx},-1,1`);
+  }
+  return neighbors;
+}
 
 function checkContinuityWith(allCubes, player) {
   const pc = allCubes.filter(c => c.player === player);
   const key = player === 1 ? 'p1' : 'p2';
   const thresholds = GameState.continuityThresholds[key];
 
-  // Yuzey uzerindeki kupler set
-  const pcSet = new Set(pc.map(c => `${c.gx},${c.gy},${c.gz}`));
+  // Sadece yuzey uzerindeki kupleri al
+  const pcSet = new Set(
+    pc.map(c => `${c.gx},${c.gy},${c.gz}`)
+       .filter(k => SURFACE_SET.has(k))
+  );
 
+  // Flood-fill: en uzun bagli bileşeni bul
+  // Komşuluk = yüzey komşuluğu (6-yön + köşe arısta)
   let maxLen = 0;
+  const visited = new Set();
 
-  // 1. Yatay zincirler: her gy katmaninda halka uzerinde ardisik segment
-  const N = CONTINUITY_H_LOOP.length; // 12
-  for (let gy = 0; gy < 8; gy++) {
-    const present = CONTINUITY_H_LOOP.map(([gx, gz]) =>
-      pcSet.has(`${gx},${gy},${gz}`) ? 1 : 0
-    );
-    let cur = 0;
-    for (let i = 0; i < 2 * N; i++) {
-      if (present[i % N]) {
-        cur++;
-        if (cur > N) cur = N;
-        if (cur > maxLen) maxLen = cur;
-      } else {
-        cur = 0;
+  for (const startKey of pcSet) {
+    if (visited.has(startKey)) continue;
+    const queue = [startKey];
+    visited.add(startKey);
+    let size = 0;
+    while (queue.length) {
+      const k = queue.shift();
+      size++;
+      const [gx, gy, gz] = k.split(',').map(Number);
+      for (const nk of getSurfaceNeighbors(gx, gy, gz)) {
+        if (pcSet.has(nk) && !visited.has(nk)) {
+          visited.add(nk);
+          queue.push(nk);
+        }
       }
     }
-  }
-
-  // 2. Dikey zincirler: her dis sutunda gy 0..7 ardisik segment
-  for (const [gx, gz] of CONTINUITY_V_COLS) {
-    let cur = 0;
-    for (let gy = 0; gy < 8; gy++) {
-      if (pcSet.has(`${gx},${gy},${gz}`)) {
-        cur++;
-        if (cur > maxLen) maxLen = cur;
-      } else {
-        cur = 0;
-      }
-    }
+    if (size > maxLen) maxLen = size;
   }
 
   // Esik kontrolu - sadece ilk kez gecildiginde bonus ver
@@ -3440,7 +3473,101 @@ function checkLockWin(player) {
     if (checkHorizontalLockAtLayer(pc, y)) return true;
   }
 
+  // Dikey lock win: board'u dikey saran 20-küp kapalı döngü
+  // 4 mümkün döngü: gz=0, gz=1, gx=0, gx=1
+  if (checkVerticalLockWin(pc)) return true;
+
   return false;
+}
+
+// Dikey lock win: board'u dikey olarak saran 20-küp kapalı döngü
+// gz=0: sol(-1,gy,0) + üst(0/1,8,0) + sağ(2,gy,0) + alt(0/1,-1,0)
+// gz=1: sol(-1,gy,1) + üst(0/1,8,1) + sağ(2,gy,1) + alt(0/1,-1,1)
+// gx=0: ön(0,gy,-1) + üst(0,8,0/1) + arka(0,gy,2) + alt(0,-1,0/1)
+// gx=1: ön(1,gy,-1) + üst(1,8,0/1) + arka(1,gy,2) + alt(1,-1,0/1)
+function checkVerticalLockWin(pc) {
+  const pcSet = new Set(pc.map(c => `${c.gx},${c.gy},${c.gz}`));
+
+  // 4 dikey döngüyü kontrol et
+  const rings = [
+    buildVerticalRing('gz', 0),
+    buildVerticalRing('gz', 1),
+    buildVerticalRing('gx', 0),
+    buildVerticalRing('gx', 1),
+  ];
+
+  for (const ring of rings) {
+    // Tüm 20 pozisyon oyuncuya ait mi?
+    const hasAll = ring.every(([gx,gy,gz]) => pcSet.has(`${gx},${gy},${gz}`));
+    if (!hasAll) continue;
+
+    // Flood-fill: 20 küp bağlı tek parça mı?
+    const ringSet = new Set(ring.map(([gx,gy,gz]) => `${gx},${gy},${gz}`));
+    const visited = new Set();
+    const queue = [`${ring[0][0]},${ring[0][1]},${ring[0][2]}`];
+    while (queue.length) {
+      const k = queue.shift();
+      if (visited.has(k)) continue;
+      visited.add(k);
+      const [gx, gy, gz] = k.split(',').map(Number);
+      for (const nk of getVerticalRingNeighbors(gx, gy, gz, ringSet)) {
+        if (!visited.has(nk)) queue.push(nk);
+      }
+    }
+    if (visited.size === ring.length) return true;
+  }
+  return false;
+}
+
+function buildVerticalRing(axis, val) {
+  const ring = [];
+  if (axis === 'gz') {
+    const gz = val;
+    for (let gy = 0; gy < 8; gy++) ring.push([-1, gy, gz]);
+    ring.push([0, 8, gz]); ring.push([1, 8, gz]);
+    for (let gy = 7; gy >= 0; gy--) ring.push([2, gy, gz]);
+    ring.push([1, -1, gz]); ring.push([0, -1, gz]);
+  } else {
+    const gx = val;
+    for (let gy = 0; gy < 8; gy++) ring.push([gx, gy, -1]);
+    ring.push([gx, 8, 0]); ring.push([gx, 8, 1]);
+    for (let gy = 7; gy >= 0; gy--) ring.push([gx, gy, 2]);
+    ring.push([gx, -1, 1]); ring.push([gx, -1, 0]);
+  }
+  return ring;
+}
+
+function getVerticalRingNeighbors(gx, gy, gz, ringSet) {
+  const candidates = [];
+  for (const [dx,dy,dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) {
+    candidates.push(`${gx+dx},${gy+dy},${gz+dz}`);
+  }
+  // Köşe arısta bağlantıları
+  if (gy === 8) {
+    if (gx === 0) candidates.push(`-1,7,${gz}`);
+    if (gx === 1) candidates.push(`2,7,${gz}`);
+    if (gz === 0) candidates.push(`${gx},7,-1`);
+    if (gz === 1) candidates.push(`${gx},7,2`);
+  }
+  if (gy === -1) {
+    if (gx === 0) candidates.push(`-1,0,${gz}`);
+    if (gx === 1) candidates.push(`2,0,${gz}`);
+    if (gz === 0) candidates.push(`${gx},0,-1`);
+    if (gz === 1) candidates.push(`${gx},0,2`);
+  }
+  if (gy === 7) {
+    if (gx === -1 && gz >= 0 && gz <= 1) candidates.push(`0,8,${gz}`);
+    if (gx ===  2 && gz >= 0 && gz <= 1) candidates.push(`1,8,${gz}`);
+    if (gz === -1 && gx >= 0 && gx <= 1) candidates.push(`${gx},8,0`);
+    if (gz ===  2 && gx >= 0 && gx <= 1) candidates.push(`${gx},8,1`);
+  }
+  if (gy === 0) {
+    if (gx === -1 && gz >= 0 && gz <= 1) candidates.push(`0,-1,${gz}`);
+    if (gx ===  2 && gz >= 0 && gz <= 1) candidates.push(`1,-1,${gz}`);
+    if (gz === -1 && gx >= 0 && gx <= 1) candidates.push(`${gx},-1,0`);
+    if (gz ===  2 && gx >= 0 && gx <= 1) candidates.push(`${gx},-1,1`);
+  }
+  return candidates.filter(k => ringSet.has(k));
 }
 
 // Yatay (horizontal) lock win — tek y katmanı
@@ -3553,14 +3680,17 @@ function calculatePenalties() {
 }
 
 function showWinScreen(player, type) {
-  // Ceza hesapla
-  const penalties = calculatePenalties();
-  const rawScores = [...GameState.scores];
-  const finalScores = [
-    Math.max(0, rawScores[0] - penalties[0]),
-    Math.max(0, rawScores[1] - penalties[1]),
-  ];
+  const isLockWin = (type === 'kilit');
 
+  // Lock Win'de penalty yok — kazanan zaten belli, skor değişmez
+  const penalties = isLockWin ? [0, 0] : calculatePenalties();
+  const rawScores = [...GameState.scores];
+  const finalScores = isLockWin
+    ? [...rawScores]
+    : [
+        Math.max(0, rawScores[0] - penalties[0]),
+        Math.max(0, rawScores[1] - penalties[1]),
+      ];
 
   GameState.scores = finalScores;
   document.getElementById('val-p1').textContent = finalScores[0];
@@ -3575,8 +3705,12 @@ function showWinScreen(player, type) {
 
   const wp = document.getElementById('win-player');
 
-  const winner = finalScores[0] > finalScores[1] ? 1 :
-                 finalScores[1] > finalScores[0] ? 2 : 0;
+  // Lock Win'de winner = Lock Win yapan oyuncu, skor karşılaştırması yok
+  const winner = isLockWin
+    ? player
+    : (finalScores[0] > finalScores[1] ? 1 :
+       finalScores[1] > finalScores[0] ? 2 : 0);
+
   if (winner === 0) {
     wp.textContent = 'Draw!';
     wp.style.color = 'var(--accent)';
@@ -3588,8 +3722,7 @@ function showWinScreen(player, type) {
   document.getElementById('final-p1').textContent = finalScores[0];
   document.getElementById('final-p2').textContent = finalScores[1];
 
-
-  const hasPenalty = penalties[0] > 0 || penalties[1] > 0;
+  const hasPenalty = !isLockWin && (penalties[0] > 0 || penalties[1] > 0);
   const breakdown = document.getElementById('penalty-breakdown');
   const lines = document.getElementById('penalty-lines');
   if (breakdown && lines) {
