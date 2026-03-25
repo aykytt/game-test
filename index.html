@@ -3220,97 +3220,114 @@ function showMoveScore(targets, player, basePoints, contactCount, contactBonus, 
 
 // Yatay halka: board çevresini saat yönünde sıralı 12 pozisyon (gy sabit)
 // Tum yuzey pozisyonlari seti (yan yuzeyler + ust/alt kare yuzeyler)
-function buildSurfaceSet() {
-  const s = new Set();
-  for (let gy = 0; gy < 8; gy++) {
-    for (let gz = -1; gz <= 2; gz++) { s.add(`-1,${gy},${gz}`); s.add(`2,${gy},${gz}`); }
-    for (let gx = -1; gx <= 2; gx++) { s.add(`${gx},${gy},-1`); s.add(`${gx},${gy},2`); }
-  }
-  // Ust kare yuzey: gy=8, gx∈{0,1}, gz∈{0,1}
-  for (let gx = 0; gx <= 1; gx++) for (let gz = 0; gz <= 1; gz++) s.add(`${gx},8,${gz}`);
-  // Alt kare yuzey: gy=-1, gx∈{0,1}, gz∈{0,1}
-  for (let gx = 0; gx <= 1; gx++) for (let gz = 0; gz <= 1; gz++) s.add(`${gx},-1,${gz}`);
-  return s;
-}
-const SURFACE_SET = buildSurfaceSet();
+// ─── CONTINUITY BONUS ────────────────────────────────────────────────────────
+// Kural: yuzey uzerinde DUZ CIZGI — yatayda halka, dikeyde serit.
+// Kivrilan, geri donen yilan sekli SAYILMAZ.
+//
+// YATAY: sabit gy katmaninda, 12 pozisyonluk halka uzerinde ardisik segment
+// DIKEY: 4 serit (gz=0, gz=1, gx=0, gx=1), her biri 20 pozisyon
+//        Sol/On yan (gy 0..7) + Ust kare (2 poz) + Sag/Arka yan (gy 7..0) + Alt kare (2 poz)
+//        Lock win halkasinin tam ayni guzergahi — esik 8/16, kapali olmasi sart degil
 
-// Yuzey komsulugu: 6-yon + kose arista baglantilari
-// Ust/alt kare yuzeyi yan yuzeylerle baglayan kopru
-function getSurfaceNeighbors(gx, gy, gz) {
-  const neighbors = [];
-  const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-  for (const [dx,dy,dz] of dirs) {
-    const k = `${gx+dx},${gy+dy},${gz+dz}`;
-    if (SURFACE_SET.has(k)) neighbors.push(k);
-  }
-  // Kose arista: ust yuzey (gy=8) <-> yan yuzey (gy=7)
-  if (gy === 8) {
-    if (gx === 0) neighbors.push(`-1,7,${gz}`);
-    if (gx === 1) neighbors.push(`2,7,${gz}`);
-    if (gz === 0) neighbors.push(`${gx},7,-1`);
-    if (gz === 1) neighbors.push(`${gx},7,2`);
-  }
-  // Kose arista: alt yuzey (gy=-1) <-> yan yuzey (gy=0)
-  if (gy === -1) {
-    if (gx === 0) neighbors.push(`-1,0,${gz}`);
-    if (gx === 1) neighbors.push(`2,0,${gz}`);
-    if (gz === 0) neighbors.push(`${gx},0,-1`);
-    if (gz === 1) neighbors.push(`${gx},0,2`);
-  }
-  // Yan yuzeyden ust/alt yuzeye
-  if (gy === 7) {
-    if (gx === -1 && gz >= 0 && gz <= 1) neighbors.push(`0,8,${gz}`);
-    if (gx ===  2 && gz >= 0 && gz <= 1) neighbors.push(`1,8,${gz}`);
-    if (gz === -1 && gx >= 0 && gx <= 1) neighbors.push(`${gx},8,0`);
-    if (gz ===  2 && gx >= 0 && gx <= 1) neighbors.push(`${gx},8,1`);
-  }
-  if (gy === 0) {
-    if (gx === -1 && gz >= 0 && gz <= 1) neighbors.push(`0,-1,${gz}`);
-    if (gx ===  2 && gz >= 0 && gz <= 1) neighbors.push(`1,-1,${gz}`);
-    if (gz === -1 && gx >= 0 && gx <= 1) neighbors.push(`${gx},-1,0`);
-    if (gz ===  2 && gx >= 0 && gx <= 1) neighbors.push(`${gx},-1,1`);
-  }
-  return neighbors;
-}
+// Yatay halka (onceden vardi, dogru calisiyor)
+const CONTINUITY_H_LOOP = [
+  [-1,-1], [-1, 0], [-1, 1], [-1, 2],
+  [ 0, 2], [ 1, 2],
+  [ 2, 2], [ 2, 1], [ 2, 0], [ 2,-1],
+  [ 1,-1], [ 0,-1],
+];
+
+// 4 dikey serit — her biri 20 pozisyon, siralanmis
+// gz=0 seridi: sol yan + ust kare + sag yan + alt kare
+const CONTINUITY_V_STRIPS = [
+  // gz=0
+  [[-1,0,0],[-1,1,0],[-1,2,0],[-1,3,0],[-1,4,0],[-1,5,0],[-1,6,0],[-1,7,0],
+   [0,8,0],[1,8,0],
+   [2,7,0],[2,6,0],[2,5,0],[2,4,0],[2,3,0],[2,2,0],[2,1,0],[2,0,0],
+   [1,-1,0],[0,-1,0]],
+  // gz=1
+  [[-1,0,1],[-1,1,1],[-1,2,1],[-1,3,1],[-1,4,1],[-1,5,1],[-1,6,1],[-1,7,1],
+   [0,8,1],[1,8,1],
+   [2,7,1],[2,6,1],[2,5,1],[2,4,1],[2,3,1],[2,2,1],[2,1,1],[2,0,1],
+   [1,-1,1],[0,-1,1]],
+  // gx=0
+  [[0,0,-1],[0,1,-1],[0,2,-1],[0,3,-1],[0,4,-1],[0,5,-1],[0,6,-1],[0,7,-1],
+   [0,8,0],[0,8,1],
+   [0,7,2],[0,6,2],[0,5,2],[0,4,2],[0,3,2],[0,2,2],[0,1,2],[0,0,2],
+   [0,-1,1],[0,-1,0]],
+  // gx=1
+  [[1,0,-1],[1,1,-1],[1,2,-1],[1,3,-1],[1,4,-1],[1,5,-1],[1,6,-1],[1,7,-1],
+   [1,8,0],[1,8,1],
+   [1,7,2],[1,6,2],[1,5,2],[1,4,2],[1,3,2],[1,2,2],[1,1,2],[1,0,2],
+   [1,-1,1],[1,-1,0]],
+];
 
 function checkContinuityWith(allCubes, player) {
   const pc = allCubes.filter(c => c.player === player);
   const key = player === 1 ? 'p1' : 'p2';
   const thresholds = GameState.continuityThresholds[key];
+  const pcSet = new Set(pc.map(c => `${c.gx},${c.gy},${c.gz}`));
 
-  // Sadece yuzey uzerindeki kupleri al
-  const pcSet = new Set(
-    pc.map(c => `${c.gx},${c.gy},${c.gz}`)
-       .filter(k => SURFACE_SET.has(k))
-  );
-
-  // Flood-fill: en uzun bagli bileşeni bul
-  // Komşuluk = yüzey komşuluğu (6-yön + köşe arısta)
   let maxLen = 0;
-  const visited = new Set();
 
-  for (const startKey of pcSet) {
-    if (visited.has(startKey)) continue;
-    const queue = [startKey];
-    visited.add(startKey);
-    let size = 0;
-    while (queue.length) {
-      const k = queue.shift();
-      size++;
-      const [gx, gy, gz] = k.split(',').map(Number);
-      for (const nk of getSurfaceNeighbors(gx, gy, gz)) {
-        if (pcSet.has(nk) && !visited.has(nk)) {
-          visited.add(nk);
-          queue.push(nk);
+  // 1. Yatay zincirler: her gy katmaninda halka uzerinde ardisik segment
+  const N = CONTINUITY_H_LOOP.length; // 12
+  for (let gy = 0; gy < 8; gy++) {
+    const present = CONTINUITY_H_LOOP.map(([gx, gz]) =>
+      pcSet.has(`${gx},${gy},${gz}`) ? 1 : 0
+    );
+    let cur = 0;
+    for (let i = 0; i < 2 * N; i++) {
+      if (present[i % N]) {
+        cur++;
+        if (cur > N) cur = N;
+        if (cur > maxLen) maxLen = cur;
+      } else {
+        cur = 0;
+      }
+    }
+  }
+
+  // 2. Dikey zincirler: 4 serit, dairesel + her iki yon
+  for (const strip of CONTINUITY_V_STRIPS) {
+    const M = strip.length; // 20
+    const present = strip.map(([gx,gy,gz]) => pcSet.has(`${gx},${gy},${gz}`) ? 1 : 0);
+    for (const dir of [present, [...present].reverse()]) {
+      let cur = 0;
+      for (let i = 0; i < 2 * M; i++) {
+        if (dir[i % M]) {
+          cur++;
+          if (cur > M) cur = M;
+          if (cur > maxLen) maxLen = cur;
+        } else {
+          cur = 0;
         }
       }
     }
-    if (size > maxLen) maxLen = size;
+  }
+
+  // 3. Tum dis sutunlar (12 adet) gy=0..7 boyunca duz dikey
+  // Kose sutunlari (-1,-1),(2,-1),(-1,2),(2,2) burada sayiliyor
+  const OUTER_COLS = [
+    [-1,-1],[-1,0],[-1,1],[-1,2],
+    [2,-1],[2,0],[2,1],[2,2],
+    [0,-1],[1,-1],[0,2],[1,2],
+  ];
+  // gy=-1 (alt cikma) ve gy=8 (ust cikma) dahil tariyoruz
+  for (const [gx, gz] of OUTER_COLS) {
+    let cur = 0;
+    for (let gy = -1; gy <= 8; gy++) {
+      if (pcSet.has(`${gx},${gy},${gz}`)) {
+        cur++;
+        if (cur > maxLen) maxLen = cur;
+      } else {
+        cur = 0;
+      }
+    }
   }
 
   // Esik kontrolu - sadece ilk kez gecildiginde bonus ver
   let bonus = 0;
-
   if (maxLen >= 16 && !thresholds.t16) {
     thresholds.t16 = true;
     thresholds.t8 = true;
