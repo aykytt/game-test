@@ -2016,6 +2016,8 @@ const P1_COLORS = Array(10).fill(P1_PIECE_COLOR);
 // Tüm P2 taşları: 6-unit Stair (4+2) rengi
 const P2_PIECE_COLOR = 0xd85a30;
 const P2_COLORS = Array(10).fill(P2_PIECE_COLOR);
+const P1_DARK_COLOR = 0x4f6e16;
+const P2_DARK_COLOR = 0x77321a;
 
 // ─── SCENE SETUP ─────────────────────────────────────────────────────────────
 const container = document.getElementById('canvas-container');
@@ -3350,9 +3352,8 @@ function checkContinuityWith(allCubes, player) {
   });
 
   const OUTER_COLS = [
-    [-1,-1],[-1,0],[-1,1],[-1,2],
-    [2,-1],[2,0],[2,1],[2,2],
-    [0,-1],[1,-1],[0,2],[1,2],
+    [-1,-1],[-1,2],
+    [2,-1],[2,2],
   ];
   OUTER_COLS.forEach(([gx, gz], idx) => {
     let cur = 0, len = 0;
@@ -3651,7 +3652,7 @@ function checkHorizontalLockAtLayer(pc, y) {
 
 // ─── SON HAMLE VURGULAMA ─────────────────────────────────────────────────────
 let lastMoveHighlightMeshes = [];
-let lastMoveHighlightEnabled = false;
+let lastMoveHighlightEnabled = true;
 
 function toggleLastMoveHighlight(enabled) {
   lastMoveHighlightEnabled = enabled;
@@ -3663,7 +3664,10 @@ function toggleLastMoveHighlight(enabled) {
 }
 
 function clearLastMoveHighlight() {
-  lastMoveHighlightMeshes.forEach(m => scene.remove(m));
+  lastMoveHighlightMeshes.forEach(mesh => {
+    const normalColor = mesh.userData.player === 1 ? P1_PIECE_COLOR : P2_PIECE_COLOR;
+    mesh.material.color.setHex(normalColor);
+  });
   lastMoveHighlightMeshes = [];
 }
 
@@ -3672,36 +3676,23 @@ function drawLastMoveHighlight() {
   if (!lastMoveHighlightEnabled) return;
   if (GameState.lastPlacedCubes.length === 0) return;
 
-
   const prevPlayer = GameState.currentPlayer === 1 ? 2 : 1;
-  // P1: beyaz (#ffffff) — yeşil taştan ayırt edilir | P2: altın (#ffd080) — turuncudan ayırt edilir
-  const hlColor = prevPlayer === 1 ? 0xffffff : 0xffd080;
-
-  const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(UNIT+0.02, UNIT+0.02, UNIT+0.02));
-  const hlMat = new THREE.LineBasicMaterial({
-    color: hlColor,
-    transparent: true,
-    opacity: 1.0,
-    linewidth: 2,
-  });
+  const darkColor = prevPlayer === 1 ? P1_DARK_COLOR : P2_DARK_COLOR;
 
   GameState.lastPlacedCubes.forEach(c => {
-    const lines = new THREE.LineSegments(edgeGeo, hlMat.clone());
-    lines.position.copy(gridToWorld(c.gx, c.gy, c.gz));
-    lines.userData.isHighlight = true;
-    scene.add(lines);
-    lastMoveHighlightMeshes.push(lines);
+    const mesh = placedMeshes.find(m =>
+      m.userData.gx === c.gx && m.userData.gy === c.gy && m.userData.gz === c.gz
+    );
+    if (mesh) {
+      mesh.material.color.setHex(darkColor);
+      lastMoveHighlightMeshes.push(mesh);
+    }
   });
 }
 
 
 function updateHighlightPulse(t) {
-  if (!lastMoveHighlightEnabled || lastMoveHighlightMeshes.length === 0) return;
-  // Yavaş nefes: ~7 saniyede bir tam döngü, dar aralık — oyunun dinginliğini korur
-  const pulse = 0.5 + 0.5 * Math.sin(t * 0.9);
-  lastMoveHighlightMeshes.forEach(m => {
-    if (m.material) m.material.opacity = 0.55 + pulse * 0.35;
-  });
+  // Nefes animasyonu kaldırıldı — highlight artık koyu renk değişimiyle yapılıyor
 }
 
 function showBonusToast(msg){
@@ -4667,7 +4658,7 @@ window.addEventListener('beforeunload', () => {
       <!-- Son hamle + ipucu satırı -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:7px;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-          <input type="checkbox" id="mob-last-move-chk"
+          <input type="checkbox" id="mob-last-move-chk" checked
             onchange="toggleLastMoveHighlight(this.checked);document.getElementById('last-move-chk').checked=this.checked;"
             style="width:13px;height:13px;accent-color:var(--accent);">
           <span style="font-size:10px;color:var(--text-muted);letter-spacing:0.08em;" data-i18n="highlight_last">Highlight last move</span>
@@ -4723,7 +4714,7 @@ window.addEventListener('beforeunload', () => {
 
 <!-- Son hamle vurgulama -->
 <div id="last-move-toggle">
-  <input type="checkbox" id="last-move-chk" onchange="toggleLastMoveHighlight(this.checked)">
+  <input type="checkbox" id="last-move-chk" checked onchange="toggleLastMoveHighlight(this.checked)">
   <label for="last-move-chk" data-i18n="highlight_last">Highlight last move</label>
 </div>
 
