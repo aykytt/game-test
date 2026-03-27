@@ -1,3 +1,46 @@
+<!-- ============================================================
+  CACTUS GAME RULES — CONTINUITY BONUS  (AI reference comment)
+  ============================================================
+
+  BOARD GEOMETRİSİ
+  - 2×2×8 dikdörtgen prizma (gx=0-1, gy=0-7, gz=0-1)
+  - Taşlar dışarıya yapışır (board içine giremez)
+  - Kuşbakışı en fazla 1 kademe dışarı çıkabilir (gx=-1/2, gz=-1/2 geçerli; gy=-1/8 geçerli)
+
+  DEVAMLlLIK NEDİR
+  - Board yüzeyindeki kesintisiz DÜZ çizgi
+  - Yüzey boyunca ilerler, köşede döner — ama sapmaz, kıvrılmaz
+  - Yılan gibi gidip gelmez; tek şerit üzerinde ilerler
+
+  ŞERİT TİPLERİ
+  1. Yatay şerit   — sabit gy seviyesinde board çevresini dönen halka
+                     8 ayrı şerit (gy=0..7), her biri 12 pozisyon
+  2. Dikey şerit   — aşağıdan yukarıya gidip tepeden dönen ters-U / düz-U
+                     4 ayrı şerit (gz=0, gz=1, gx=0, gx=1), her biri 20 poz (8+2+8+2)
+  3. Düz dikey sütun — tek sütunda düz gidiş, çıkmalar dahil
+                     12 dış sütun, gy=-1..8 (10 poz)
+
+  TEPE/DİP DÖNÜŞÜ — ÇIKMA ZORUNLULUĞU
+  - Yan yüzey (gy=0..7) ile tepe yüzeyi arasında köşe geçişi vardır
+  - Geçiş için çıkma zorunludur: gy=8 veya gy=-1 konumları hem dönemeç hem çıkma görevi üstlenir
+  - Ters-U: sol yan → çıkma (tepe sol) → tepe → çıkma (tepe sağ) → sağ yan = 2 çıkma
+  - Minimum T8 dağılımı: sol yan 3 + tepe 2 + sağ yan 3 = 8
+
+  BONUS KURALLARI
+  - 8+ ardışık küp  → +10 (o şerit için bir kez)
+  - 16+ ardışık küp → +20 (aynı şerit için, +10'u kapsar)
+  - Her şerit bağımsız; farklı şerit 8'e ulaşırsa tekrar +10
+  - Bir şerit eşiğini geçtikten sonra o şerit için bir daha bonus verilmez
+  - Şeridin yönü önemsiz; her iki yönde aranır
+  - Bir küp birden fazla şeride ait olabilir; her şerit bağımsız değerlendirilir
+
+  KOD REFERANSI
+  - CONTINUITY_H_LOOP   : 12-pozisyonlu yatay halka [gx,gz] çiftleri
+  - CONTINUITY_V_STRIPS : 4 dikey şerit, her biri 20 pozisyon [gx,gy,gz]
+  - OUTER_COLS          : 12 düz dikey sütun [gx,gz] çiftleri
+  - stripMaxLen()       : dairesel + iki yönlü en uzun ardışık segment
+  - checkContinuityWith(): tüm şeritleri kontrol eder, per-strip eşik yönetimi
+  ============================================================ -->
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -3237,107 +3280,88 @@ const CONTINUITY_H_LOOP = [
   [ 1,-1], [ 0,-1],
 ];
 
-// 4 dikey serit — her biri 20 pozisyon, siralanmis
-// gz=0 seridi: sol yan + ust kare + sag yan + alt kare
+// 4 dikey serit — her biri 24 pozisyon (köşeler dahil)
+// sol yan (8) + tepe köşe-sol + tepe (2) + tepe köşe-sağ + sağ yan (8) + dip köşe-sağ + dip (2) + dip köşe-sol
 const CONTINUITY_V_STRIPS = [
   // gz=0
   [[-1,0,0],[-1,1,0],[-1,2,0],[-1,3,0],[-1,4,0],[-1,5,0],[-1,6,0],[-1,7,0],
-   [0,8,0],[1,8,0],
+   [-1,8,0],[0,8,0],[1,8,0],[2,8,0],
    [2,7,0],[2,6,0],[2,5,0],[2,4,0],[2,3,0],[2,2,0],[2,1,0],[2,0,0],
-   [1,-1,0],[0,-1,0]],
+   [2,-1,0],[1,-1,0],[0,-1,0],[-1,-1,0]],
   // gz=1
   [[-1,0,1],[-1,1,1],[-1,2,1],[-1,3,1],[-1,4,1],[-1,5,1],[-1,6,1],[-1,7,1],
-   [0,8,1],[1,8,1],
+   [-1,8,1],[0,8,1],[1,8,1],[2,8,1],
    [2,7,1],[2,6,1],[2,5,1],[2,4,1],[2,3,1],[2,2,1],[2,1,1],[2,0,1],
-   [1,-1,1],[0,-1,1]],
+   [2,-1,1],[1,-1,1],[0,-1,1],[-1,-1,1]],
   // gx=0
   [[0,0,-1],[0,1,-1],[0,2,-1],[0,3,-1],[0,4,-1],[0,5,-1],[0,6,-1],[0,7,-1],
-   [0,8,0],[0,8,1],
+   [0,8,-1],[0,8,0],[0,8,1],[0,8,2],
    [0,7,2],[0,6,2],[0,5,2],[0,4,2],[0,3,2],[0,2,2],[0,1,2],[0,0,2],
-   [0,-1,1],[0,-1,0]],
+   [0,-1,2],[0,-1,1],[0,-1,0],[0,-1,-1]],
   // gx=1
   [[1,0,-1],[1,1,-1],[1,2,-1],[1,3,-1],[1,4,-1],[1,5,-1],[1,6,-1],[1,7,-1],
-   [1,8,0],[1,8,1],
+   [1,8,-1],[1,8,0],[1,8,1],[1,8,2],
    [1,7,2],[1,6,2],[1,5,2],[1,4,2],[1,3,2],[1,2,2],[1,1,2],[1,0,2],
-   [1,-1,1],[1,-1,0]],
+   [1,-1,2],[1,-1,1],[1,-1,0],[1,-1,-1]],
 ];
+
+// Her serit icin en uzun ardisik segment (dairesel + her iki yon)
+function stripMaxLen(present, M) {
+  let max = 0;
+  for (const dir of [present, [...present].reverse()]) {
+    let cur = 0;
+    for (let i = 0; i < 2 * M; i++) {
+      if (dir[i % M]) { cur = Math.min(cur + 1, M); if (cur > max) max = cur; }
+      else { cur = 0; }
+    }
+  }
+  return max;
+}
 
 function checkContinuityWith(allCubes, player) {
   const pc = allCubes.filter(c => c.player === player);
-  const key = player === 1 ? 'p1' : 'p2';
-  const thresholds = GameState.continuityThresholds[key];
+  const playerKey = player === 1 ? 'p1' : 'p2';
+  const thresholds = GameState.continuityThresholds[playerKey];
   const pcSet = new Set(pc.map(c => `${c.gx},${c.gy},${c.gz}`));
+  let bonus = 0;
 
-  let maxLen = 0;
+  function checkStrip(key, len) {
+    const k8 = key + '_t8', k16 = key + '_t16';
+    if (len >= 16 && !thresholds[k16]) {
+      thresholds[k16] = true; thresholds[k8] = true;
+      bonus += 20; showBonusToast('Continuity Bonus +20 🎉');
+    } else if (len >= 8 && !thresholds[k8]) {
+      thresholds[k8] = true;
+      bonus += 10; showBonusToast('Continuity Bonus +10 ⭐');
+    }
+  }
 
-  // 1. Yatay zincirler: her gy katmaninda halka uzerinde ardisik segment
-  const N = CONTINUITY_H_LOOP.length; // 12
+  const N = CONTINUITY_H_LOOP.length;
   for (let gy = 0; gy < 8; gy++) {
     const present = CONTINUITY_H_LOOP.map(([gx, gz]) =>
       pcSet.has(`${gx},${gy},${gz}`) ? 1 : 0
     );
-    let cur = 0;
-    for (let i = 0; i < 2 * N; i++) {
-      if (present[i % N]) {
-        cur++;
-        if (cur > N) cur = N;
-        if (cur > maxLen) maxLen = cur;
-      } else {
-        cur = 0;
-      }
-    }
+    checkStrip('h_' + gy, stripMaxLen(present, N));
   }
 
-  // 2. Dikey zincirler: 4 serit, dairesel + her iki yon
-  for (const strip of CONTINUITY_V_STRIPS) {
-    const M = strip.length; // 20
+  CONTINUITY_V_STRIPS.forEach((strip, idx) => {
     const present = strip.map(([gx,gy,gz]) => pcSet.has(`${gx},${gy},${gz}`) ? 1 : 0);
-    for (const dir of [present, [...present].reverse()]) {
-      let cur = 0;
-      for (let i = 0; i < 2 * M; i++) {
-        if (dir[i % M]) {
-          cur++;
-          if (cur > M) cur = M;
-          if (cur > maxLen) maxLen = cur;
-        } else {
-          cur = 0;
-        }
-      }
-    }
-  }
+    checkStrip('v_' + idx, stripMaxLen(present, strip.length));
+  });
 
-  // 3. Tum dis sutunlar (12 adet) gy=0..7 boyunca duz dikey
-  // Kose sutunlari (-1,-1),(2,-1),(-1,2),(2,2) burada sayiliyor
   const OUTER_COLS = [
     [-1,-1],[-1,0],[-1,1],[-1,2],
     [2,-1],[2,0],[2,1],[2,2],
     [0,-1],[1,-1],[0,2],[1,2],
   ];
-  // gy=-1 (alt cikma) ve gy=8 (ust cikma) dahil tariyoruz
-  for (const [gx, gz] of OUTER_COLS) {
-    let cur = 0;
+  OUTER_COLS.forEach(([gx, gz], idx) => {
+    let cur = 0, len = 0;
     for (let gy = -1; gy <= 8; gy++) {
-      if (pcSet.has(`${gx},${gy},${gz}`)) {
-        cur++;
-        if (cur > maxLen) maxLen = cur;
-      } else {
-        cur = 0;
-      }
+      if (pcSet.has(`${gx},${gy},${gz}`)) { cur++; if (cur > len) len = cur; }
+      else { cur = 0; }
     }
-  }
-
-  // Esik kontrolu - sadece ilk kez gecildiginde bonus ver
-  let bonus = 0;
-  if (maxLen >= 16 && !thresholds.t16) {
-    thresholds.t16 = true;
-    thresholds.t8 = true;
-    bonus = 20;
-    showBonusToast('Continuity Bonus +20 🎉');
-  } else if (maxLen >= 8 && !thresholds.t8) {
-    thresholds.t8 = true;
-    bonus = 10;
-    showBonusToast('Continuity Bonus +10 ⭐');
-  }
+    checkStrip('c_' + idx, len);
+  });
 
   return bonus;
 }
