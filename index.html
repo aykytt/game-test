@@ -4028,6 +4028,12 @@ function lobbyOffline() {
 async function lobbyCreateRoom() {
   try {
     if (!window.db) throw new Error('no-db');
+    const lastCreate = parseInt(localStorage.getItem('cactus_last_room') || '0');
+    if (Date.now() - lastCreate < 30000) {
+      alert('Lütfen 30 saniye bekleyip tekrar deneyin.');
+      return;
+    }
+    localStorage.setItem('cactus_last_room', String(Date.now()));
     p1Name = p1Name || 'Player 1'; localPlayer = 1; gameMode = 'online-host';
 
     let code, snap, attempts = 0;
