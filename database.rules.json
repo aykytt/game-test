@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null && (!data.exists() || auth.uid === data.child('host_uid').val() || (data.child('status').val() === 'waiting' && now < data.child('expires').val()) || (data.child('status').val() === 'playing' && newData.exists() && auth.uid === data.child('guest_uid').val()))",
+        "state": {
+          ".validate": "root.child('rooms').child($roomId).child('status').val() !== 'playing' || (newData.child('lastPlayer').val() === 1 && auth.uid === root.child('rooms').child($roomId).child('host_uid').val()) || (newData.child('lastPlayer').val() === 2 && auth.uid === root.child('rooms').child($roomId).child('guest_uid').val())"
+        }
+      }
+    }
+  }
+}
