@@ -3974,6 +3974,8 @@ finalizePlacement = function(targets, animMeshes, player, pieceIndex) {
   if (isMobile()) {
     setMobilePlaceMode(false);
     updateMobileTurnUI();
+    panelPinned = false;
+    closePiecePanel();
   }
 };
 
