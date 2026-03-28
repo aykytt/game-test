@@ -1270,6 +1270,7 @@ mixpanel.init('1eb5bf0eac8219fa740e14976812d294', {
 <!-- Firebase SDK — head'de yüklenmeli -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script>
   try {
     const firebaseConfig = {
@@ -1283,6 +1284,8 @@ mixpanel.init('1eb5bf0eac8219fa740e14976812d294', {
     };
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.database();
+    window.firebaseAuth = firebase.auth();
+    window.firebaseAuth.signInAnonymously().catch(e => console.warn('Auth failed', e));
   } catch(e) {
     console.warn('Firebase init failed — offline mode only', e);
     window.db = null;
@@ -4037,8 +4040,10 @@ async function lobbyCreateRoom() {
 
     roomId = code;
     roomRef = window.db.ref('rooms/'+code);
+    const uid = window.firebaseAuth?.currentUser?.uid || null;
     await roomRef.set({
       host_name: p1Name, guest_name: null, state: null,
+      host_uid: uid, guest_uid: null,
       created: Date.now(), expires: Date.now()+7200000, status: 'waiting'
     });
     document.getElementById('room-code-text').textContent = code;
@@ -4066,7 +4071,9 @@ async function joinSubmit() {
   if(Date.now()>room.expires){ document.getElementById('join-error').textContent='Code expired'; return; }
   p2Name = p2Name || 'Player 2'; p1Name=room.host_name||'Player 1';
   localPlayer=2; gameMode='online-guest'; roomId=code; roomRef=window.db.ref('rooms/'+code);
+  const uid = window.firebaseAuth?.currentUser?.uid || null;
   await roomRef.child('guest_name').set(p2Name);
+  await roomRef.child('guest_uid').set(uid);
   await roomRef.child('status').set('playing');
   startCountdown();
 }
